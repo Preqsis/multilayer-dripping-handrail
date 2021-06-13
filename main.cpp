@@ -267,6 +267,7 @@ Argument<double>* _m_primary = new Argument<double>("m_primary", 27.0, "Primary 
 Argument<double>* _m_secondary = new Argument<double>("m_secondary", 16.0, "Secondary mas in Sun masses (default 16.0)");
 Argument<double>* _d = new Argument<double>("d", 0.2, "Primary to secondary distance in AU (default 0.2)"); 
 Argument<double>* _r_in = new Argument<double>("r_in", 6.96e8, "Inner disc boundary radius (default 6.96e8 m)");
+Argument<double>* _r_out = new Argument<double>("r_out", 50 * 6.96e8, "Outer disc boundary radius (default 50 * 6.96e8 m)");
 // strings
 Argument<std::string>* _output = new Argument<std::string>("output", "./data.h", "Output data file (default ./data.h)");
 
@@ -274,7 +275,7 @@ int main(int argc, char **argv) {
     /* Command line prarser definition */
     InputParser parser(
         {_n, _idim, _jdim}, // integers 
-        {_dx, _x, _m_primary, _m_secondary, _d, _r_in},  // doubles
+        {_dx, _x, _m_primary, _m_secondary, _d, _r_in, _r_out},  // doubles
         {_output} // strings
     );
     if (!parser.run(argc, argv)) {
@@ -333,7 +334,8 @@ int main(int argc, char **argv) {
          * Dependent paramaters
          * - computed
          */
-        double r_out = d * std::cbrt(m_secondary / (3.0 * (m_primary + m_secondary))); // L1 point
+        //double r_out = d * std::cbrt(m_secondary / (3.0 * (m_primary + m_secondary))); // L1 point
+        double r_out = _r_out->getValue();
 
         /**
          * Simulation start info msg.
