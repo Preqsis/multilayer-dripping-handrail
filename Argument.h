@@ -7,26 +7,37 @@ private:
     std::string _name;
     std::string _help;
     T _value;
+    bool _has_value = false;
 public:
     Argument(std::string name) {
-        this->_name = name;
+        this->setName(name);
+        this->setHelp("Not specified");
     }
 
-    Argument(std::string name, T value) : Argument(name) {
+    Argument(std::string name, std::string help) : Argument(name) {
+        this->setHelp(help);
+    }
+
+    Argument(std::string name, std::string help, T value) : Argument(name, help) {
         this->setValue(value);
     }
 
-    Argument(std::string name, T value, std::string help) : Argument(name, value) {
-        this->_help = help;
-    }
+    void setName(std::string name) {this->_name = name;}
 
     std::string getName() {return this->_name;}
 
+    void setValue(T value) {
+        this->_value = value;
+        this->_has_value = true;
+    } 
+
     T getValue() {return this->_value;}
 
-    void setValue(T value) {this->_value = value;} 
+    void setHelp(std::string help) {this->_help = help;} 
 
     std::string getHelp() {return this->_help;}
+
+    bool hasValue() {return this->_has_value;}
 };
 
 #endif

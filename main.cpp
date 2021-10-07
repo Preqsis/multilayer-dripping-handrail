@@ -3,6 +3,7 @@
 #include <mpi.h>
 #include <cstdlib>
 
+#include <H5Attribute.hpp>
 #include <H5DataSet.hpp>
 #include <H5DataSpace.hpp>
 #include <H5File.hpp>
@@ -19,14 +20,19 @@ typedef boost::array<double, 2> state_type;
 typedef long unsigned int lint;
 typedef unsigned int uint;
 
+/**
+ * Used physical constants
+ */
+const double AU = 1.495978707e11;
+const double M_SUN = 1.9891e30;
+const double G = 6.6743e-11;
 
 /**
- * 'Communication' double** matrix allocation
- *
- * @param idim Number of rows in communication matrix.
- * @param jdim Number of columns in communication matrix.
- * @return allocated double** array 'matrix'.
+ * Other constants
  */
+const uint GRID_N_COLUMNS = 11;
+
+// alloc 2d double pointer array
 double** alloc_2D_double(int idim, int jdim) {
     double** arr;
     arr = (double**)calloc(idim, sizeof(double*));
@@ -37,12 +43,7 @@ double** alloc_2D_double(int idim, int jdim) {
     return arr;
 }
 
-/**
- * Worker function
- *
- * @param container 
- *
- */
+// worker function
 double** worker(double** container, uint ic) {
     // solver / stepper
     //boost::numeric::odeint::runge_kutta4<state_type> stepper;
@@ -82,6 +83,39 @@ double** worker(double** container, uint ic) {
     free(model);
 
     return container;
+}
+
+// 'Empty' grid initalization
+void grid_init(uint idim, uint jdim, double r_in, double r_out, double dx, double** data) {
+    uint k; 
+    for (uint i=0; i<idim; i++) { // rings
+        for (uint j=0; j<jdim; j++){ // cells
+            k = i * jdim + j; // serialized communication data coordinate
+            data[k][0] = i; // ring coordinate
+            data[k][1] = j; // cell coordinate
+            data[k][2] = 0.0; // t
+            data[k][3] = 2.0; // z
+            data[k][4] = 0.0; // v
+            data[k][5] = 0.2; // m
+            data[k][6] = 0.0; // dm
+            data[k][7] = std::pow(r_out, 2.0) / std::pow(r_in + (idim - i - 1) * (r_out - r_in) / (idim - 1), 2.0); // r (ring specific radius)
+            data[k][8] = dx; // dx (inner MSMM parameter)
+            data[k][9] = 2.0 * M_PI * ((double) j) / ((double) jdim); // azimuth (cell specific rotation angle)
+            data[k][10] = 1.0; // compute flag (0.0 --> do not compute)
+        }
+    }
+}
+
+// Load external data to grid
+void grid_load(std::string fpath, std::string dkey, double** data) {
+    // input HDF5 file
+    H5::File file(fpath, H5::File::ReadOnly);
+
+    // get specified dataset
+    H5::DataSet dataset = file.getDataSet(dkey);
+    
+    // read dataset data
+    dataset.read((double**) data[0]);
 }
 
 class Distributor {
@@ -246,57 +280,61 @@ public:
     }
 };
 
-/**
- * Used physical constants
- */
-const double AU = 1.495978707e11;
-const double M_SUN = 1.9891e30;
-const double G = 6.6743e-11;
 
 /**
  * Command line arguments defs
  **/
-// long integers
-Argument<lint>* _n = new Argument<lint>("n", 5e5, "Number of simulation steps (default 5E5)");
-Argument<lint>* _idim = new Argument<lint>("idim", 10, "Number of rings (default 10)");
-Argument<lint>* _jdim = new Argument<lint>("jdim", 10, "Number of cells in one ring (default 10)");
-// doubles
-Argument<double>* _dx = new Argument<double>("dx", 0.01, "Independent var step (default 0.01)");
-Argument<double>* _x = new Argument<double>("x", 0.0, "Independent var initial value (default 0.0)");
-Argument<double>* _m_primary = new Argument<double>("m_primary", 27.0, "Primary mass in Sun masses (default 27.0)");
-Argument<double>* _m_secondary = new Argument<double>("m_secondary", 16.0, "Secondary mas in Sun masses (default 16.0)");
-Argument<double>* _d = new Argument<double>("d", 0.2, "Primary to secondary distance in AU (default 0.2)"); 
-Argument<double>* _r_in = new Argument<double>("r_in", 6.96e8, "Inner disc boundary radius (default 6.96e8 m)");
-Argument<double>* _r_out = new Argument<double>("r_out", 50 * 6.96e8, "Outer disc boundary radius (default 50 * 6.96e8 m)");
-// strings
-Argument<std::string>* _output = new Argument<std::string>("output", "./data.h", "Output data file (default ./data.h)");
+Argument<lint>* _n = new Argument<lint>("n", "Number of simulation steps (default 5E5)", 5e5);
+Argument<lint>* _idim = new Argument<lint>("idim", "Number of rings (default 10)", 10);
+Argument<lint>* _jdim = new Argument<lint>("jdim", "Number of cells in one ring (default 10)", 10);
+Argument<double>* _dx = new Argument<double>("dx", "Independent var step (default 0.01)", 0.01);
+Argument<double>* _x = new Argument<double>("x", "Independent var initial value (default 0.0)", 0.0);
+Argument<double>* _m_primary = new Argument<double>("m_primary", "Primary mass in Sun masses (default 27.0)", 27.0);
+Argument<double>* _m_secondary = new Argument<double>("m_secondary", "Secondary mas in Sun masses (default 16.0)", 16.0);
+Argument<double>* _d = new Argument<double>("d", "Primary to secondary distance in AU (default 0.2)", 0.2); 
+Argument<double>* _r_in = new Argument<double>("r_in", "Inner disc boundary radius (default 6.96e8 m)", 6.96e8);
+Argument<double>* _r_out = new Argument<double>("r_out", "Outer disc boundary radius (default 50 * 6.96e8 m)", 50.0 * 6.96e8);
+Argument<std::string>* _owner = new Argument<std::string>("owner", "Specified owner/creator of the outputed data file (default 'without owner')", "no owner");
+Argument<std::string>* _output = new Argument<std::string>("output", "Output data file (default ./data.h)", "./data.h");
+Argument<std::string>* _input = new Argument<std::string>("input", "Input data file");
+Argument<std::string>* _dataset = new Argument<std::string>("dataset", "Selected input dataset");
+
+/**
+ * HDF5 Attributes names 
+ */
+const std::string ATTR_NAME_DATE_CREATED("date_created");
+const std::string ATTR_NAME_RUNTIME("run_time");
+const std::string ATTR_NAME_OWNER("owner");
+const std::string ATTR_NAME_IDIM("idim");
+const std::string ATTR_NAME_JDIM("jdim");
+const std::string ATTR_NAME_N("n");
+const std::string ATTR_NAME_R_IN("r_in");
+const std::string ATTR_NAME_R_OUT("r_out");
+const std::string ATTR_NAME_M_PRIMARY("m_primary");
+const std::string ATTR_NAME_DX("dx");
 
 int main(int argc, char **argv) {
-    /* Command line prarser definition */
+    // CLA parser
     InputParser parser(
         {_n, _idim, _jdim}, // integers 
         {_dx, _x, _m_primary, _m_secondary, _d, _r_in, _r_out},  // doubles
-        {_output} // strings
+        {_output, _owner, _input, _dataset} // strings
     );
     if (!parser.run(argc, argv)) {
         std::cout << parser; // prints out help msg.
         return 0;
     }
 
-    /* MPI initialization */
-    int p_rank;
-    int size;
+    // MPI init
+    int p_rank, size;
     MPI_Status status;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &p_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    /* Number of paralel workers */
-    int n_workers = size-1; 
+    int n_workers = size-1; // number of parallel workers 
 
     /* Flags defs. */
-    const int MASTER = 0; // for simplicity
-    const int COMPUTE=1, STOP=2;
+    const int MASTER = 0, COMPUTE=1, STOP=2;
 
     /* 'Real' simulation grid dimensions */ 
     uint idim = _idim->getValue();
@@ -307,39 +345,45 @@ int main(int argc, char **argv) {
      * - serialized and divided by workers
      */
     uint ic = idim*jdim  / n_workers + 1;
-    lint jc = 11; // number of parameters for each cell
+    lint jc = GRID_N_COLUMNS; // number of parameters for each cell
 
-    /**
-     * HDF dataset dimensions 
-     * - whole grid
-     * - constant size throughout the simulation! 
-     */
+    // HDF dataset dimensions 
     std::vector<size_t> dims = {idim*jdim, jc};
     
     /* Process specific task */
     if (p_rank == MASTER) { // main control process
-        /* create HDF output file */
-        H5::File file(_output->getValue(), H5::File::ReadWrite | H5::File::Create | H5::File::Overwrite);
-        
-        /**
-         *  Independent parameters
-         *  - cla input
-            */
+        // used values;
         double m_primary = _m_primary->getValue() * M_SUN;
         double m_secondary = _m_secondary->getValue() * M_SUN;
         double r_in = _r_in->getValue();
         double d = _d->getValue() * AU;
-
-        /**
-         * Dependent paramaters
-         * - computed
-         */
-        //double r_out = d * std::cbrt(m_secondary / (3.0 * (m_primary + m_secondary))); // L1 point
         double r_out = _r_out->getValue();
 
-        /**
-         * Simulation start info msg.
-         */
+        // sim data grid
+        double** grid = alloc_2D_double(dims[0], dims[1]);
+
+        // initial grid state
+        // loads external data if specified
+        if (_input->hasValue() && _dataset->hasValue()) {
+            grid_load(_input->getValue(), _dataset->getValue(), grid); // load external data file
+        } else {
+            grid_init(idim, jdim, r_in, r_out, _dx->getValue(), grid); // empty grid
+        }
+
+        /* create HDF output file */
+        H5::File file(_output->getValue(), H5::File::ReadWrite | H5::File::Create | H5::File::Overwrite);
+
+        // File attributes (sim metadata)
+        file.createAttribute<uint>(ATTR_NAME_N, H5::DataSpace::From(_n->getValue())).write(_n->getValue()); // n of simulation steps
+        file.createAttribute<uint>(ATTR_NAME_IDIM, H5::DataSpace::From(idim)).write(idim); // dataset i dim
+        file.createAttribute<uint>(ATTR_NAME_JDIM, H5::DataSpace::From(jdim)).write(jdim); // dataset j dim
+        file.createAttribute<double>(ATTR_NAME_R_IN, H5::DataSpace::From(r_in)).write(r_in); // disc inner diameter
+        file.createAttribute<double>(ATTR_NAME_R_OUT, H5::DataSpace::From(r_out)).write(r_out); // disc outer diameter
+        file.createAttribute<double>(ATTR_NAME_M_PRIMARY, H5::DataSpace::From(m_primary)).write(m_primary); // primary component mass
+        file.createAttribute<double>(ATTR_NAME_DX, H5::DataSpace::From(_dx->getValue())).write(_dx->getValue()); // internal dx
+        file.createAttribute<std::string>(ATTR_NAME_OWNER, H5::DataSpace::From(_owner->getValue())).write(_owner->getValue()); // owner
+
+        // Simulation start info msg.
         std::cout << "--- Multi-Layer Dripping Handrail Parameters ---" << std::endl << std::endl;
         std::cout << "m_primary \t\t= " << _m_primary->getValue() << " * M_SUN (" << m_primary << " kg)" << std::endl;
         std::cout << "m_secondary \t\t= " << _m_secondary->getValue() << " * M_SUN (" << m_secondary << " kg)" << std::endl;
@@ -349,28 +393,6 @@ int main(int argc, char **argv) {
         std::cout << "n \t\t\t= " << _n->getValue() << " steps" << std::endl;
         std::cout << "output \t\t\t= " << _output->getValue() << std::endl << std::endl;
         std::cout << "------------------------------------------------" << std::endl;
-
-        /**
-         * 'Empty' (initial state) communication grid
-         */
-        double** grid = alloc_2D_double(idim*jdim, jc);
-        uint k; 
-        for (uint i=0; i<idim; i++) { // rings
-            for (uint j=0; j<jdim; j++){ // cells
-                k = i * jdim + j; // serialized communication grid coordinate
-                grid[k][0] = i; // ring coordinate
-                grid[k][1] = j; // cell coordinate
-                grid[k][2] = 0.0; // t
-                grid[k][3] = 2.0; // z
-                grid[k][4] = 0.0; // v
-                grid[k][5] = 0.2; // m
-                grid[k][6] = 0.0; // dm
-                grid[k][7] = std::pow(r_out, 2.0) / std::pow(r_in + (idim - i - 1) * (r_out - r_in) / (idim - 1), 2.0); // r (ring specific radius)
-                grid[k][8] = _dx->getValue(); // dx (inner MSMM parameter)
-                grid[k][9] = 2.0 * M_PI * ((double) j) / ((double) jdim); // azimuth (cell specifich rotation angle)
-                grid[k][10] = 1.0; // compute flag (0.0 --> do not compute)
-            }
-        }
 
         /**
          * 'Drain' dataset
@@ -410,6 +432,7 @@ int main(int argc, char **argv) {
         delete ds;
 
         /* Create jobs set for each worker */
+        uint k;
         std::vector<std::vector<uint>> jobs = {};
         for (uint w = 0; w < n_workers; w++) {
             jobs.push_back({});

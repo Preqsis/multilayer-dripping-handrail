@@ -10,8 +10,6 @@ import matplotlib.pyplot as plt
 
 import random
 
-
-
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--data", type=str, help="HDF5 data file")
