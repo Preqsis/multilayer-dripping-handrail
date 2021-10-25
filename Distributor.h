@@ -47,6 +47,7 @@ public:
         for (uint j = 0; j < _jdim; j++) {
             k = j;
             grid[k][9] = RingTemp[j];
+            grid[k][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
         }
         RingTemp.clear();
 
@@ -55,6 +56,7 @@ public:
             for (uint j = 0; j < _jdim; j++) {
                 k = i * _jdim + j;
                 grid[k][9] = std::fmod(grid[k][9] + _RotationProfile[i], 2.0 * M_PI);
+                grid[k][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
             }
         }
 
@@ -68,6 +70,7 @@ public:
             }
         }
         grid[idx][5] += _q;
+        grid[idx][6] = _q; // u pritokove bunky presne odpovida _q, zbytek 0
 
         double mb;
         double dp;
@@ -109,8 +112,10 @@ public:
                     // reset vychyleni zdrojove bunky
                     grid[k][3] = 2.0;
 
-                    grid[k_lower_left][5] += part_lower_left * mb;
-                    grid[k_lower_right][5] += part_lower_right* mb;
+                    grid[k_lower_left][5] += part_lower_left * mb; // m
+                    grid[k_lower_left][6] = part_lower_left * mb; // dm
+                    grid[k_lower_right][5] += part_lower_right* mb; // m
+                    grid[k_lower_right][6] = part_lower_right* mb; // dm
 
                     // zapsat do drain datasetu
                     _drain[_n][i] += mb;
