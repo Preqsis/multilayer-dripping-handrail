@@ -1,6 +1,8 @@
 #ifndef DISTRIBUTOR_H
 #define DISTRIBUTOR_H
 
+#include <random>
+
 class Distributor {
 private:
     uint _idim;
@@ -33,6 +35,13 @@ public:
     void setRotationProfile(std::vector<double> profile) {
         _RotationProfile.clear();
         _RotationProfile = profile;
+    }
+
+    double getRandW() {
+        std::random_device dev;
+        std::default_random_engine engine(dev());
+        std::uniform_real_distribution<double> dist(0.0, 0.3);
+        return dist(engine);
     }
 
     void step(double** grid) {
@@ -73,6 +82,7 @@ public:
         grid[idx][6] = _q; // u pritokove bunky presne odpovida _q, zbytek 0
 
         double mb;
+        double w;
         double dp;
         uint k_out, k_in;
         uint k_lower_right, k_lower_left;
@@ -97,11 +107,15 @@ public:
 
                     k_lower_left = (i + 1) * _jdim + (uint)std::floor(j_in) % _jdim;
                     k_lower_right = (i + 1) * _jdim + (uint)std::floor(j_in + 1.0) % _jdim;
-                    part_lower_left = 1.0 - std::fmod(j_in, 1.0);
+
                     part_lower_right = std::fmod(j_in, 1.0);
+                    part_lower_left = 1.0 - part_lower_right;
                     
                     // odtrzena hmotnost
-                    mb = grid[k][5] - (0.2 * grid[k][5] + 0.3);
+                    //mb = grid[k][5] - (0.2 * grid[k][5] + 0.3);
+                    //mb = grid[k][5] * 0.5; // hausnumero
+                    w = getRandW();
+                    mb = grid[k][5] * (0.8 - w);
 
                     // odebrat od zdrojove bunky
                     grid[k][5] -= mb;
@@ -129,7 +143,10 @@ public:
                     }
 
                     // odtrzena hmotnost
-                    mb = grid[k][5] - (0.2 * grid[k][5] + 0.3);
+                    //mb = grid[k][5] - (0.2 * grid[k][5] + 0.3);
+                    //mb = grid[k][5] * 0.5; // hausnumero
+                    w = getRandW();
+                    mb = grid[k][5] * (0.8 - w);
 
                     // odebrat od zdrojove bunky
                     grid[k][5] -= mb;

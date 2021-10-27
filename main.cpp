@@ -74,7 +74,7 @@ void worker(double** data, MSMM2* model, uint ic) {
         data[i][2] += dx; // inkrementace casu
         data[i][3] = y[0]; // z
         data[i][4] = y[1]; // v
-        data[i][5] += data[i][6]; // zapocteni pritoku k hmotnosti 
+        //data[i][5] += data[i][6]; // zapocteni pritoku k hmotnosti 
     }
 }
 
@@ -89,7 +89,7 @@ void grid_init(uint idim, uint jdim, double r_in, double r_out, double dx, doubl
             data[k][2] = 0.0; // t
             data[k][3] = 2.0; // z
             data[k][4] = 0.0; // v
-            data[k][5] = 0.0; // m
+            data[k][5] = 0.5; // m
             data[k][6] = 0.0; // dm
             data[k][7] = std::pow(r_out, 2.0) / std::pow(r_in + (idim - i - 1) * (r_out - r_in) / (idim - 1), 2.0); // r (ring specific radius)
             data[k][8] = dx; // dx (inner MSMM parameter)

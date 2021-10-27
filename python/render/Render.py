@@ -16,7 +16,8 @@ def render_disc(data, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_out=0.4
     c.scale(w, h)
 
     # set bacground color (black)
-    c.set_source_rgb(0, 0, 0)
+    #c.set_source_rgb(0, 0, 0)
+    c.set_source_rgb(255, 255, 255)
     c.paint()
     c.save()
     c.restore()
