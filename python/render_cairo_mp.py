@@ -19,7 +19,7 @@ def worker(fpath, output, frames, w, h, i):
         idim, jdim = f.attrs["idim"], f.attrs["jdim"]
 
         for frame in frames:
-            dkey = f"data_{frame}" 
+            dkey = f"data_{frame}"
             print(i, dkey)
             with open(f"{output}/frame_{frame:06}.png", "wb") as out:
                 out.write(render_disc(f[dkey][()], idim, jdim, w=w, h=h))
@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # frame-sety pro workery
     fsets = np.array_split(np.arange(args.first_frame, args.last_frame+args.s, args.s), args.n)
-    
+
     # definice procesu
     proc = [mp.Process(target=worker, args=(args.input, args.output, frames, args.width, args.height, i)) for i, frames in enumerate(fsets)]
 
@@ -48,6 +48,3 @@ if __name__ == "__main__":
         p.start()
     for p in proc:
         p.join()
-        
-
-

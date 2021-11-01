@@ -210,8 +210,12 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &p_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     n_workers = size-1; // number of MPI worker processes 
-    ic      = idim * jdim / n_workers; // comm dim i
     jc      = dims[1]; // comm dim j
+    ic      = idim * jdim / n_workers; // comm dim i
+    while (ic * n_workers < idim * jdim) { 
+        ic++;
+    }
+
 
     /* Process specific task */
     if (p_rank == MASTER) { // main control process
