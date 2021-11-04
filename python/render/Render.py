@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from io import BytesIO, StringIO
 import PIL
 
-def render_disc(data, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., bg_rgb=(0, 0, 0), return_surface=False):
+def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., bg_rgb=(0, 0, 0), return_surface=False):
     colormap = plt.cm.get_cmap("magma" if cmap is None else cmap)
     dr = (r_out - r_in) / idim
 
@@ -17,7 +17,7 @@ def render_disc(data, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_out=0.4
     c.scale(h, h)
 
     # set bacground color (black)
-    #c.set_source_rgb(0, 0, 0)
+    #c.set_source_rgb(255, 0, 0)
     c.set_source_rgb(*bg_rgb)
     c.paint()
     c.save()
@@ -47,7 +47,7 @@ def render_disc(data, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_out=0.4
     c.set_source_rgb(255, 255, 255)
     c.stroke()
 
-    c.arc(0.5, 0.5, r_in - 0.6 * dr, 0., 2. * np.pi)
+    c.arc(0.5, 0.5, r_in + 0.4 * dr, 0., 2. * np.pi)
     c.set_source_rgb(255, 255, 255)
     c.stroke()
 
@@ -63,13 +63,7 @@ def render_disc(data, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_out=0.4
 
     return imdata
 
-def render_frame(data_disc, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150):
-    tmp = np.empty((100, 2))
-    tmp[:,0] = np.arange(0, tmp.shape[0], 1)
-    tmp[:,1] = np.random.rand(tmp.shape[0], 1)[:,0]
-
-    buff = BytesIO()
-
+def render_frame(data_disc, data_lc, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150):
     fig, axes = plt.subplots(nrows=2, ncols=1)
 
     fig.set_size_inches(885 / dpi, h / dpi)
@@ -77,8 +71,11 @@ def render_frame(data_disc, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_o
 
     fig.patch.set_facecolor('#000000')
 
-    axes[0].plot(tmp[:,0], tmp[:,1])
-    axes[1].plot(tmp[:,0], tmp[:,1])
+    axes[0].plot(data_lc[:,0], data_lc[:,1])
+    axes[0].set_xlabel("STEP", color="#ffffff")
+    axes[0].set_ylabel("LUMINOSITY", rotation=90, color="#ffffff")
+    ymax = 20e11
+    axes[0].set_ylim((-0.05*ymax, 20e11))
 
     for ax in axes:
         ax.patch.set_facecolor('#000000')
@@ -88,9 +85,10 @@ def render_frame(data_disc, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_o
 
     fig.canvas.draw()
 
-    cw, ch = fig.canvas.get_width_height()
+    iw, ih = fig.get_size_inches()
     img = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    img = img.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    #img = img.reshape(fig.canvas.get_width_height()[::-1]*dpi + (3,))
+    img = img.reshape((int(ih*dpi), int(iw*dpi), 3))
 
     plt.close()
 
@@ -103,7 +101,7 @@ def render_frame(data_disc, idim, jdim, w=1500, h=1500, cmap=None, r_in=0.1, r_o
     disc_surface.finish()
 
     col = np.arange(0, w, 1)
-    m = col >= w - cw
+    m = col >= w - int(iw * dpi)
 
     b = np.copy(img)
     a[:,m] = b
