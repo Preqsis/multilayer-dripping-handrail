@@ -15,7 +15,7 @@ dM = 10**14 # kg * s^-1 ... rychlost akrece
 M_secondary = 0.5 * M_sun
 
 if __name__ == "__main__":
-    fname = "/home/preqsis/Plocha/sim/pokus.h5"
+    fname = "/home/preqsis/Plocha/sim/sim_50x314_2e5.h5"
     dt = 3000.
 
     f = h5py.File(fname, "r")
