@@ -3,6 +3,8 @@
 
 import h5py
 import numpy as np
+import argparse
+
 from scipy import constants
 
 M_sun = 1.9891E30 # hmostnost slunce [kg]
@@ -14,11 +16,12 @@ dM = 10**14 # kg * s^-1 ... rychlost akrece
 
 M_secondary = 0.5 * M_sun
 
-if __name__ == "__main__":
-    fname = "/home/preqsis/Plocha/sim/sim_50x314_2e5.h5"
-    dt = 3000.
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--input", type=str, help="HDF5 data file")
+    args = p.parse_args()
 
-    f = h5py.File(fname, "r")
+    f = h5py.File(args.input, "r")
     idim, jdim = f.attrs["idim"], f.attrs["jdim"]
     data_drain = f["drain"][()]
     f.close()
@@ -80,4 +83,7 @@ if __name__ == "__main__":
     f.create_dataset("data_lc", data=data_lc)
 
     f.close()
+    
 
+if __name__ == "__main__":
+    main()

@@ -63,7 +63,7 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
 
     return imdata
 
-def render_frame(data_disc, data_lc, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150):
+def render_frame(data_disc, data_lc, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150, lc_plot_range=(0., 1.)):
     fig, axes = plt.subplots(nrows=2, ncols=1)
 
     fig.set_size_inches(885 / dpi, h / dpi)
@@ -74,8 +74,7 @@ def render_frame(data_disc, data_lc, idim, jdim, w=1920, h=1080, cmap=None, r_in
     axes[0].plot(data_lc[:,0], data_lc[:,1])
     axes[0].set_xlabel("STEP", color="#ffffff")
     axes[0].set_ylabel("LUMINOSITY", rotation=90, color="#ffffff")
-    ymax = 20e11
-    axes[0].set_ylim((-0.05*ymax, 20e11))
+    axes[0].set_ylim(lc_plot_range)
 
     for ax in axes:
         ax.patch.set_facecolor('#000000')
