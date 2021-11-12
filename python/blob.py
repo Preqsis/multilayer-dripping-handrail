@@ -22,7 +22,7 @@ def main() -> None:
     p.add_argument("--output", type=str, help="HDF5 data file")
     p.add_argument("--dkey", type=str, help="Blob target frame key")
     p.add_argument("--ic", default=0, type=int)
-    p.add_argument("--ac", action=parse_azimuth, type=float)
+    p.add_argument("--ac", default=0., action=parse_azimuth, type=float)
     p.add_argument("--r", default=200, type=float)
     p.add_argument("--m", default=10., type=float)
     args = p.parse_args()

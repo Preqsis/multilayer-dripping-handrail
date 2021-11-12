@@ -81,7 +81,6 @@ def main() -> None:
     f = h5py.File(fname, "a")
     f.create_dataset("data_lc", data=data_lc)
     f.close()
-    
 
 if __name__ == "__main__":
     main()
