@@ -1,5 +1,5 @@
-#ifndef INPUTPARSER_H
-#define INPUTPARSER_H
+#ifndef ARGUMENTPARSER_H
+#define ARGUMENTPARSER_H
 
 #include <map>
 #include <string>
@@ -9,42 +9,66 @@
 
 #include "Argument.h"
 
-typedef long unsigned int lint;
-
-class InputParser {
+class ArgumentParser {
 private:
     std::map<std::string, Argument<bool>*> _bools;
     std::map<std::string, Argument<int>*> _ints;
     std::map<std::string, Argument<double>*> _doubles;
     std::map<std::string, Argument<std::string>*> _strings;
 public:
-    InputParser(
-        std::initializer_list<Argument<bool>*> bools, 
-        std::initializer_list<Argument<int>*> ints, 
-        std::initializer_list<Argument<double>*> doubles, 
-        std::initializer_list<Argument<std::string>*> strings
-    ) {
-        for (auto a: bools) {this->addBool(a);}
-        for (auto a: ints) {this->addInt(a);}
-        for (auto a: doubles) {this->addDouble(a);}
-        for (auto a: strings) {this->addString(a);}
+    ArgumentParser() {}
+
+    void addArgument(Argument<bool>* arg) {
+        addBool(arg);
     }
 
-    InputParser(
-        std::initializer_list<Argument<bool>*> bools, 
-        std::initializer_list<Argument<int>*> ints, 
-        std::initializer_list<Argument<double>*> doubles, 
-        std::initializer_list<Argument<std::string>*> strings,
-        int &argc,
-        char **argv
-    ) : InputParser(bools, ints, doubles, strings) {
-        this->run(argc, argv);
+    void addArgument(Argument<int>* arg) {
+        addInt(arg);
     }
 
-    void addBool(Argument<bool>* a) {this->_bools[a->getName()] = a;}
-    void addInt(Argument<int>* a) {this->_ints[a->getName()] = a;}
-    void addDouble(Argument<double>* a) {this->_doubles[a->getName()] = a;}
-    void addString(Argument<std::string>* a) {this->_strings[a->getName()] = a;}
+    void addArgument(Argument<double>* arg) {
+        addDouble(arg);
+    }
+
+    void addArgument(Argument<std::string>* arg) {
+        addString(arg);
+    }
+
+    void addBool(Argument<bool>* arg) {
+        _bools[arg->getName()] = arg;
+    }
+
+    void addBool(std::initializer_list<Argument<bool>*> arg) {
+        for (auto a: arg) 
+            addBool(a);
+    }
+
+    void addInt(Argument<int>* arg) {
+        _ints[arg->getName()] = arg;
+    }
+    
+    void addInt(std::initializer_list<Argument<int>*> arg) {
+        for (auto a: arg) 
+            addInt(a);
+    }
+
+    void addDouble(Argument<double>* arg) {
+        _doubles[arg->getName()] = arg;
+    }
+
+    void addDouble(std::initializer_list<Argument<double>*> arg) {
+        for (auto a: arg) 
+            addDouble(a);
+    }
+
+    void addString(Argument<std::string>* arg) {
+        _strings[arg->getName()] = arg;
+    }
+
+    void addString(std::initializer_list<Argument<std::string>*> arg) {
+        for (auto a: arg) 
+            addString(a);
+    }
 
     bool inBools(const std::string& key) {
         std::map<std::string, Argument<bool>*>::iterator it = this->_bools.find(key);
@@ -67,11 +91,7 @@ public:
     }
 
     void setArgument(std::string key, std::string value) {
-        // zbavit pocatecnich zbytecnych pomlcek
-        while (key[0] == '-') {
-            key.erase(0, 1);
-        }
-
+        key = stripKey(key);
         if (this->inBools(key)) {
             bool x = (value == "1" || value == "true" || value == "True" || value == "TRUE");
             this->_bools[key]->setValue(x);
@@ -90,8 +110,18 @@ public:
         }
     }
 
+    void setArgument(std::string key, bool value) {
+        this->_bools[stripKey(key)]->setValue(value);
+    }
+
     bool isKey(const std::string& s) {
         return s.find("--") != std::string::npos || s.find("-") != std::string::npos;    
+    }
+
+    std::string stripKey(std::string key) {
+        while (key[0] == '-')
+            key.erase(0, 1);
+        return key;
     }
 
     bool isValue(const std::string& s)  {
@@ -116,9 +146,12 @@ public:
                     std::string key = tmp.substr(0, tmp.find("="));
                     tmp.erase(0, tmp.find("=") + 1);
                     this->setArgument(key, tmp);
+                } else if (inBools(stripKey(tmp))) {
+                    ex = false;
+                    this->setArgument(tmp, true);
                 } else { // pristi je hodnota tohohle
                     lastKey = tmp; 
-                    ex = true; 
+                    ex      = true; 
 
                     // napoveda
                     if (lastKey == "--help" || lastKey == "-h" || lastKey == "-help") {
@@ -147,7 +180,7 @@ public:
         return false;
     }
 
-    friend std::ostream& operator<<(std::ostream& os, const InputParser& p) {
+    friend std::ostream& operator<<(std::ostream& os, const ArgumentParser& p) {
         os << "arguments: " << std::endl;
         os << std::left << std::setw(24) << "  -h, --help" << "Show this help msg. and exit." << std::endl;
 

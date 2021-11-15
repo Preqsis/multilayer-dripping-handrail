@@ -12,8 +12,9 @@ namespace H5 = HighFive;
 #include <boost/array.hpp>
 #include <boost/numeric/odeint.hpp>
 
-#include "InputParser.h"
 #include "Argument.h"
+#include "ArgumentParser.h"
+
 #include "MSMM.h"
 #include "Distributor.h"
 
@@ -31,8 +32,8 @@ const int MASTER = 0, COMPUTE=1, STOP=2;
 // alloc 2d double pointer array
 double** alloc_2D_double(int idim, int jdim) {
     double** arr;
-    arr = (double**)calloc(idim, sizeof(double*));
-    arr[0] = (double*)calloc(idim*jdim, sizeof(double));
+    arr     = (double**)calloc(idim, sizeof(double*));
+    arr[0]  = (double*)calloc(idim*jdim, sizeof(double));
     for (int i = 0; i < idim; i++) {
         arr[i] = arr[0] + i * jdim;
     }
@@ -130,7 +131,8 @@ void MPI_slave(int ic, int jc) {
     }
 }
 
-void MPI_master(uint ic, uint jc, int n_workers, InputParser* p) {
+// function for MPI master process
+void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
     double m_primary, dx, x, r_in, r_out; // system params
 
     MPI_Status status;
@@ -354,30 +356,31 @@ void MPI_master(uint ic, uint jc, int n_workers, InputParser* p) {
 
 int main(int argc, char **argv) {
     // CLA parser
-    InputParser* p = new InputParser({ 
-        // booleans
-        new Argument<bool>("append", false)
-    },{ 
-        // integers  
-        new Argument<int>("s", 5e5), 
-        new Argument<int>("idim"),
-        new Argument<int>("jdim"), 
-        new Argument<int>("first_step", 0),
-        new Argument<int>("last_step")
-    },{
-        // doubles
-        new Argument<double>("dx", 0.01),
-        new Argument<double>("x", 0.0),
-        new Argument<double>("m_primary", 1.0),
-        new Argument<double>("r_in", 6.96e8),
-        new Argument<double>("r_out", 50.0 * 6.96e8)
-    },{
-        // strings
-        new Argument<std::string>("output"),
-        new Argument<std::string>("input")
-    });
+    ArgumentParser* p = new ArgumentParser();
+
+    // add boolean args.
+    p->addArgument( new Argument<bool>("append", false));
+
+    // add integer args.
+    p->addArgument( new Argument<int>("s", 5e5));
+    p->addArgument( new Argument<int>("idim"));
+    p->addArgument( new Argument<int>("jdim"));
+    p->addArgument( new Argument<int>("first_step", 0));
+    p->addArgument( new Argument<int>("last_step"));
+
+    // add double args.
+    p->addArgument( new Argument<double>("dx", 0.01));
+    p->addArgument( new Argument<double>("x", 0.0));
+    p->addArgument( new Argument<double>("m_primary", 1.0));
+    p->addArgument( new Argument<double>("r_in", 6.96e8));
+    p->addArgument( new Argument<double>("r_out", 50.0 * 6.96e8));
+
+    // add string args.
+    p->addArgument( new Argument<std::string>("output"));
+    p->addArgument( new Argument<std::string>("input"));
+
     if (!p->run(argc, argv)) {
-        //std::cout << p; // prints out help msg.
+        std::cout << p; // prints out help msg.
         return 0;
     }
 
