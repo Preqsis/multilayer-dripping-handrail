@@ -18,6 +18,29 @@ private:
 public:
     ArgumentParser() {}
 
+    ~ArgumentParser() {
+        // delete bools
+        for(std::map<std::string, Argument<bool>*>::iterator it = _bools.begin(); it != _bools.end(); it++) {
+            delete it->second;
+            _bools.erase(it);
+        }
+        // delete bools
+        for(std::map<std::string, Argument<int>*>::iterator it = _ints.begin(); it != _ints.end(); it++) {
+            delete it->second;
+            _ints.erase(it);
+        }
+        // delete bools
+        for(std::map<std::string, Argument<double>*>::iterator it = _doubles.begin(); it != _doubles.end(); it++) {
+            delete it->second;
+            _doubles.erase(it);
+        }
+        // delete bools
+        for(std::map<std::string, Argument<std::string>*>::iterator it = _strings.begin(); it != _strings.end(); it++) {
+            delete it->second;
+            _strings.erase(it);
+        }
+    }
+
     void addArgument(Argument<bool>* arg) {
         addBool(arg);
     }

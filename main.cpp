@@ -22,14 +22,16 @@ typedef boost::array<double, 2> state_type;
 typedef long unsigned int lint;
 typedef unsigned int uint;
 
-// Physical constants
-const double M_SUN = 1.9891e30;
-const double G = 6.6743e-11;
+const double M_SUN  = 1.9891e30;
+const double G      = 6.6743e-11;
 
 // Compute flags
-const int MASTER = 0, COMPUTE=1, STOP=2;
+const int MASTER    = 0;
+const int COMPUTE   = 1;
+const int STOP      = 2;
 
 // alloc 2d double pointer array
+// dims specified by individual ints
 double** alloc_2D_double(int idim, int jdim) {
     double** arr;
     arr     = (double**)calloc(idim, sizeof(double*));
@@ -38,6 +40,12 @@ double** alloc_2D_double(int idim, int jdim) {
         arr[i] = arr[0] + i * jdim;
     }
     return arr;
+}
+
+// alloc 2d double pointer array
+// dims specified by vector
+double** alloc_2D_double(std::vector<size_t> dim) {
+    return alloc_2D_double(dim[0], dim[1]);
 }
 
 // 'Empty' grid initalization
@@ -62,14 +70,14 @@ void grid_init(uint idim, uint jdim, double r_in, double r_out, double dx, doubl
 }
 
 // Worker function
-void worker(double** data, MSMM2* model, uint ic) {
+void worker(double** data, MSMM2* model, std::vector<size_t> cdim) {
     // solver / stepper
     //boost::numeric::odeint::runge_kutta4<state_type> stepper;
     //boost::numeric::odeint::runge_kutta_dopri5<state_type> stepper;
     boost::numeric::odeint::runge_kutta_fehlberg78<state_type> stepper;
 
     // pres vsechny zadane 'bunky'
-    for (uint i=0; i<ic; i++) {
+    for (uint i = 0; i < cdim[0]; i++) {
         // bunku nepocitat!
         if (data[i][10] == 0.0) {continue;}
 
@@ -78,11 +86,11 @@ void worker(double** data, MSMM2* model, uint ic) {
         if (data[i][5] == 0.0) {continue;}
 
         // pocatectni podminky
-        double x = data[i][2];
-        state_type y = {data[i][3], data[i][4]};
+        double x        = data[i][2];
+        state_type y    = {data[i][3], data[i][4]};
 
         // velikost kroku
-        double dx = data[i][8];
+        double dx       = data[i][8];
 
         // parametry do modelu
         model->set_m(data[i][5]);
@@ -96,18 +104,17 @@ void worker(double** data, MSMM2* model, uint ic) {
         data[i][2] += dx; // inkrementace casu
         data[i][3] = y[0]; // z
         data[i][4] = y[1]; // v
-        //data[i][5] += data[i][6]; // zapocteni pritoku k hmotnosti 
     }
 }
 
-// function for MPI slave processes
-void MPI_slave(int ic, int jc) {
+// Function for MPI slave processes
+void MPI_slave(std::vector<size_t> cdim) {
     /** MPI status flag **/
     MPI_Status status;
 
-    /** Communication matrix allocation */
-    double** data_recv_slave = alloc_2D_double(ic, jc);
-    double** data_send_slave = alloc_2D_double(ic, jc);
+    /** Comms matrix allocation */
+    double** data_recv_slave = alloc_2D_double(cdim[0], cdim[1]);
+    double** data_send_slave = alloc_2D_double(cdim[0], cdim[1]);
     
     // mass-spring model
     MSMM2* model = new MSMM2();
@@ -115,7 +122,7 @@ void MPI_slave(int ic, int jc) {
     /** Recieve until STOP */
     while (true) {
         /** Recieve data */
-        MPI_Recv(&data_recv_slave[0][0], ic*jc, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        MPI_Recv(&data_recv_slave[0][0], cdim[0]*cdim[1], MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
         /** If STOP --> end slave computation */
         if (status.MPI_TAG == STOP) {
@@ -124,15 +131,15 @@ void MPI_slave(int ic, int jc) {
         }
 
         /** Run worker on recieved data */
-        worker(data_recv_slave, model, ic);
+        worker(data_recv_slave, model, cdim);
 
         /** Send results to master */
-        MPI_Send(&data_recv_slave[0][0], ic*jc, MPI_DOUBLE, 0, COMPUTE, MPI_COMM_WORLD);
+        MPI_Send(&data_recv_slave[0][0], cdim[0]*cdim[1], MPI_DOUBLE, 0, COMPUTE, MPI_COMM_WORLD);
     }
 }
 
-// function for MPI master process
-void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
+// Function for MPI master process
+void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     double m_primary, dx, x, r_in, r_out; // system params
 
     MPI_Status status;
@@ -145,7 +152,7 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
     lint s      = (lint)p->i("s");
     lint idim   = (lint)p->i("idim");
     lint jdim   = (lint)p->i("jdim");
-    std::vector<size_t> dims = {idim*jdim, jc}; // combined grid dimensions
+    std::vector<size_t> dims = {idim*jdim, cdim[1]}; // combined grid dimensions
 
     // decide on input type
     if (p->isSet("input")) { // sim start of external data
@@ -154,16 +161,15 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
 
         // decide first simulation step
         // and initial dataset
-        std::ostringstream ss;
+        std::string dkey;
         if (p->isSet("first_step")) {
             first_step = p->i("first_step");
-            ss << "data_" << first_step;
+            dkey = "data_" + std::to_string(first_step);
         } else {
             infile->getAttribute("last_step").read(first_step);
-            ss << "data_" << first_step;
+            dkey = "data_" + std::to_string(first_step);
             first_step += 1;
         }
-        std::string dkey = ss.str();
 
         //decide last simulation step
         if (p->isSet("last_step")) {
@@ -180,7 +186,7 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
         infile->getAttribute("r_out").read(r_out);
 
         // allocate grid
-        grid = alloc_2D_double(dims[0], dims[1]);
+        grid = alloc_2D_double(dims);
 
         // read data to grid
         infile->getDataSet(dkey).read((double**) grid[0]);
@@ -198,7 +204,7 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
         last_step       = first_step + s;
         
         // allocate grid
-        grid            = alloc_2D_double(dims[0], dims[1]);
+        grid            = alloc_2D_double(dims);
         
         // init 'empty' grid
         grid_init(idim, jdim, r_in, r_out, dx, grid);
@@ -217,17 +223,12 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
         outfile->createAttribute<double>("dx", H5::DataSpace::From(dx)).write(dx);
     }
 
-    /**
-        * 'Drain' dataset
-        * - records step by step mass 'drops'
-        * - can be used to compute ring specific energy output
-        **/
-    double** drain = alloc_2D_double(s, idim);
-    for (uint stp=0; stp < s; stp++) {
-        for (uint i=0; i < idim; i++) {
+    // allocate drain 
+    std::vector<size_t> drain_dims = {s, idim};
+    double** drain = alloc_2D_double(drain_dims[0], drain_dims[1]);
+    for (uint stp=0; stp < drain_dims[0]; stp++)
+        for (uint i=0; i < drain_dims[1]; i++)
             drain[stp][i] = 0.0;
-        }
-    }
 
     /**
         * 'Rotation profile' 
@@ -246,7 +247,7 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
         * 'Distributor' object
         * - handles mass redistribution (free flow and 'dripping')
         */
-    Distributor* dist = new Distributor(idim, jdim, ic, jc, drain, dx);
+    Distributor* dist = new Distributor(idim, jdim, cdim[0], cdim[1], drain, dx);
     dist->setRotationProfile(profile);
 
     /** Save initial state to main dataset */
@@ -261,15 +262,15 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
     std::vector<std::vector<uint>> jobs = {};
     for (uint w = 0; w < n_workers; w++) {
         jobs.push_back({});
-        for (uint i = 0; i < ic; i++) {
-            k = w * ic + i;
+        for (uint i = 0; i < cdim[0]; i++) {
+            k = w * cdim[0] + i;
             jobs[w].push_back(k);
         }
     }
 
-    /** Communication matrix allocation */
-    double** data_send_master = alloc_2D_double(ic, jc);
-    double** data_recv_master = alloc_2D_double(ic, jc);
+    /** Communcdim[0]ation matrix allocation */
+    double** data_send_master = alloc_2D_double(cdim[0], cdim[1]);
+    double** data_recv_master = alloc_2D_double(cdim[0], cdim[1]);
 
     /** Percentage info msg. variables */
     uint percent = 0;
@@ -277,7 +278,7 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
 
     /** Compute all simulation steps */
     for (uint step=first_step; step <= last_step; step++) {
-        /** Sort, mark (compute flag) and send jobs to specific workers */
+        /** Sort, mark (compute flag) and send jobs to specifcdim[0] workers */
         uint w;
         for (uint slave=1; slave<=n_workers; slave++) {
             w = slave-1;
@@ -285,34 +286,34 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
                 k = jobs[w][i];
 
                 if (k >= idim*jdim) { // outside of grid range --> compute = 0.0
-                    data_send_master[i][jc-1] = 0.0;
+                    data_send_master[i][cdim[1]-1] = 0.0;
                     continue;
                 }
 
-                /** actual grid / cell data to communication matrix */
-                for (uint l=0; l<jc; l++) {
+                /** actual grid / cell data to communcdim[0]ation matrix */
+                for (uint l=0; l<cdim[1]; l++) {
                     data_send_master[i][l] = grid[k][l];
                 }
-                data_send_master[i][jc-1] = 1.0; // set compute flag --> compute = 1.0 (to be computed)
+                data_send_master[i][cdim[1]-1] = 1.0; // set compute flag --> compute = 1.0 (to be computed)
             }
-            MPI_Send(&data_send_master[0][0], ic*jc, MPI_DOUBLE, slave, COMPUTE, MPI_COMM_WORLD); // send data to slave
+            MPI_Send(&data_send_master[0][0], cdim[0]*cdim[1], MPI_DOUBLE, slave, COMPUTE, MPI_COMM_WORLD); // send data to slave
         }
 
         /** Recieve and sort data back to grid */
         for (uint slave=1; slave <= n_workers; slave++) {
-            MPI_Recv(&data_recv_master[0][0], ic*jc, MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recv. data
+            MPI_Recv(&data_recv_master[0][0], cdim[0]*cdim[1], MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recv. data
 
-            for (uint i=0; i<ic; i++) { // back to grid
+            for (uint i=0; i<cdim[0]; i++) { // back to grid
                 if (data_recv_master[i][10] == 0.0) {continue;} // compute == 1.0 only
                 w = slave-1;
-                k = w * ic + i;
-                for (uint l=0; l<jc; l++) {
+                k = w * cdim[0] + i;
+                for (uint l=0; l<cdim[1]; l++) {
                     grid[k][l] = data_recv_master[i][l];
                 }
             }
         }
 
-        /** Save recieved data to HDF file in step specifich dataset */
+        /** Save recieved data to HDF file in step specifcdim[0]h dataset */
         std::ostringstream ss;
         ss << "data_" << step;
         std::string dname = ss.str();
@@ -328,34 +329,35 @@ void MPI_master(uint ic, uint jc, int n_workers, ArgumentParser* p) {
 
         /** Print percentage msg. */
         if (s >= 100) {
-            if (percent != step / one_percent) {
-                percent = step / one_percent;
+            if (percent != (step - first_step) / one_percent) {
+                percent = (step - first_step) / one_percent;
                 std::cout << "Running ... " << percent << "%\t\r" << std::flush;
             }
         }
     }
 
     // save last step attr
-    if (!outfile->hasAttribute("last_step")) {
+    if (!outfile->hasAttribute("last_step"))
         outfile->createAttribute<uint>("last_step", H5::DataSpace::From(last_step)).write(last_step);
-    }
     outfile->getAttribute("last_step").write(last_step);
 
-    /** Save 'drain' dataset to HDF file */
-    std::vector<size_t> drain_dims = {s, idim};
-    H5::DataSet* DrainDataSet = new H5::DataSet(outfile->createDataSet<double>("drain", H5::DataSpace(drain_dims)));
-    DrainDataSet->write((double**) drain[0]);
-    delete DrainDataSet;
+    // drain dataset
+    // write to first non-existent dataset name
+    int d = 0;
+    while (outfile->exist("drain_" + std::to_string(d)))
+        d += 1;
+    outfile->createDataSet<double>("drain_" + std::to_string(d), H5::DataSpace(drain_dims));
+    H5::DataSet* drain_dataset = new H5::DataSet(outfile->getDataSet("drain_" + std::to_string(d)));
+    drain_dataset->write((double**) drain[0]);
 
     /** Stop all workers (slave) by sending STOP flag (and dummy data) */
-    double** dummy = alloc_2D_double(ic, jc);
+    double** dummy = alloc_2D_double(cdim[0], cdim[1]);
     for (unsigned int i=1; i <= n_workers; i++) {
-        MPI_Send(&dummy[0][0], ic*jc, MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
+        MPI_Send(&dummy[0][0], cdim[0]*cdim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
     }
 }
 
-int main(int argc, char **argv) {
-    // CLA parser
+ArgumentParser* createArgumentParser() {
     ArgumentParser* p = new ArgumentParser();
 
     // add boolean args.
@@ -379,6 +381,12 @@ int main(int argc, char **argv) {
     p->addArgument( new Argument<std::string>("output"));
     p->addArgument( new Argument<std::string>("input"));
 
+    return p;
+}
+
+int main(int argc, char **argv) {
+    // Command line args. parser
+    ArgumentParser* p = createArgumentParser();
     if (!p->run(argc, argv)) {
         std::cout << p; // prints out help msg.
         return 0;
@@ -391,26 +399,23 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &p_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    // sim grid dimensions
-    int idim        = p->i("idim");
-    int jdim        = p->i("jdim");
-    
-    // computation dims
-    int n_workers   = size-1; // number of MPI worker processes 
-    int jc          = 11; // comm dim j
-    int ic          = idim * jdim / n_workers; // comm dim i
-    while (ic * n_workers < idim * jdim) { 
-        ic++;
-    }
+    // Comms dimensions 
+    size_t n_jobs               = p->i("idim") * p->i("jdim"); // number of jobs (cells)
+    size_t n_workers            = size-1; // number of MPI worker processes 
+    std::vector<size_t> cdim    = {n_jobs / n_workers, 11};
+    while (cdim[0] * n_workers < n_jobs) // int. rounding correction
+        cdim[0]++;
     
     /* Process specific task */
     if (p_rank == MASTER) {
-        MPI_master(ic, jc, n_workers, p);
+        MPI_master(cdim, n_workers, p);
     } else {
-        MPI_slave(ic, jc);
+        MPI_slave(cdim);
     }
     
     MPI_Finalize();
+
+    delete p;
 
     return 0;
 }
