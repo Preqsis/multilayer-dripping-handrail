@@ -156,11 +156,9 @@ public:
     } 
 
     bool parse(int &argc, char **argv) {
-        int i=1;
         std::string lastKey = "";
-        bool ex = false;
-
-        for (i; i < argc; ++i) {
+        bool ex             = false;
+        for (uint i=1; i<argc; ++i) {
             std::string tmp = std::string(argv[i]);
 
             if (this->isKey(tmp)) { // je argument
@@ -176,7 +174,7 @@ public:
                     lastKey = tmp; 
                     ex      = true; 
 
-                    // napoveda
+                    // napoveda?
                     if (lastKey == "--help" || lastKey == "-h" || lastKey == "-help") {
                         return false;
                     }

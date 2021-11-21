@@ -269,8 +269,8 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     }
 
     /** Communcdim[0]ation matrix allocation */
-    double** data_send_master = alloc_2D_double(cdim[0], cdim[1]);
-    double** data_recv_master = alloc_2D_double(cdim[0], cdim[1]);
+    double** data_send_master = alloc_2D_double(cdim);
+    double** data_recv_master = alloc_2D_double(cdim);
 
     /** Percentage info msg. variables */
     uint percent = 0;
@@ -351,9 +351,9 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     drain_dataset->write((double**) drain[0]);
 
     /** Stop all workers (slave) by sending STOP flag (and dummy data) */
-    double** dummy = alloc_2D_double(cdim[0], cdim[1]);
+    //double** dummy = alloc_2D_double(cdim[0], cdim[1]);
     for (unsigned int i=1; i <= n_workers; i++) {
-        MPI_Send(&dummy[0][0], cdim[0]*cdim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
+        MPI_Send(&data_send_master[0][0], cdim[0]*cdim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
     }
 }
 
@@ -387,9 +387,10 @@ ArgumentParser* createArgumentParser() {
 int main(int argc, char **argv) {
     // Command line args. parser
     ArgumentParser* p = createArgumentParser();
-    if (!p->parse(argc, argv))
+    if (!p->parse(argc, argv)) {
         std::cout << p; // prints out help msg.
         return 0;
+    }
 
     // MPI init
     int p_rank; // mpi process rank
@@ -405,15 +406,13 @@ int main(int argc, char **argv) {
     while (cdim[0] * n_workers < n_jobs) // int. rounding correction
         cdim[0]++;
     
-    /* Process specific task */
-    if (p_rank == MASTER) {
-        MPI_master(cdim, n_workers, p);
-    } else {
-        MPI_slave(cdim);
-    }
-    
+    // Process specific task
+    (p_rank == MASTER) ? MPI_master(cdim, n_workers, p) : MPI_slave(cdim);
+
+    // terminate mpi execution enviroment
     MPI_Finalize();
 
+    // Destroy Arg. parser object
     delete p;
 
     return 0;
