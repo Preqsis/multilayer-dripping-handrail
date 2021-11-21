@@ -155,7 +155,7 @@ public:
         return s.find("=") != std::string::npos;
     } 
 
-    bool run(int &argc, char **argv) {
+    bool parse(int &argc, char **argv) {
         int i=1;
         std::string lastKey = "";
         bool ex = false;

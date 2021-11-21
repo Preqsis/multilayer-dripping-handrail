@@ -113,8 +113,8 @@ void MPI_slave(std::vector<size_t> cdim) {
     MPI_Status status;
 
     /** Comms matrix allocation */
-    double** data_recv_slave = alloc_2D_double(cdim[0], cdim[1]);
-    double** data_send_slave = alloc_2D_double(cdim[0], cdim[1]);
+    double** data_recv_slave = alloc_2D_double(cdim);
+    double** data_send_slave = alloc_2D_double(cdim);
     
     // mass-spring model
     MSMM2* model = new MSMM2();
@@ -148,11 +148,11 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     H5::File* outfile;
     double** grid;
 
-    bool append = p->b("append");
-    lint s      = (lint)p->i("s");
-    lint idim   = (lint)p->i("idim");
-    lint jdim   = (lint)p->i("jdim");
-    std::vector<size_t> dims = {idim*jdim, cdim[1]}; // combined grid dimensions
+    bool append                 = p->b("append");
+    lint s                      = (lint)p->i("s");
+    lint idim                   = (lint)p->i("idim");
+    lint jdim                   = (lint)p->i("jdim");
+    std::vector<size_t> dims    = {idim*jdim, cdim[1]}; // combined grid dimensions
 
     // decide on input type
     if (p->isSet("input")) { // sim start of external data
@@ -186,7 +186,7 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
         infile->getAttribute("r_out").read(r_out);
 
         // allocate grid
-        grid = alloc_2D_double(dims);
+        grid            = alloc_2D_double(dims);
 
         // read data to grid
         infile->getDataSet(dkey).read((double**) grid[0]);
@@ -224,10 +224,10 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     }
 
     // allocate drain 
-    std::vector<size_t> drain_dims = {s, idim};
-    double** drain = alloc_2D_double(drain_dims[0], drain_dims[1]);
-    for (uint stp=0; stp < drain_dims[0]; stp++)
-        for (uint i=0; i < drain_dims[1]; i++)
+    std::vector<size_t> drain_dims  = {s, idim};
+    double** drain                  = alloc_2D_double(drain_dims);
+    for (uint stp=0; stp<drain_dims[0]; stp++)
+        for (uint i=0; i<drain_dims[1]; i++)
             drain[stp][i] = 0.0;
 
     /**
@@ -237,7 +237,7 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     std::vector<double> profile;
     double T_out = std::pow((4.0 * std::pow(M_PI, 2.0) * std::pow(r_out, 3.0)) / (G * m_primary) , 1.0/2.0);
     double r, T;
-    for (uint i=0; i < idim; i++) {
+    for (uint i=0; i<idim; i++) {
         r = r_in + (idim - i - 1) * (r_out - r_in) / (idim - 1); // ring specific radius
         T = std::pow((4.0 * std::pow(M_PI, 2.0) * std::pow(r, 3.0)) / (G * m_primary) , 1.0/2.0); // ring spe
         profile.push_back(std::round((std::pow(10.0, 4.0) * T_out * 2.0 * M_PI) / (T * ((double)jdim))) / std::pow(10.0, 4.0));
@@ -387,10 +387,9 @@ ArgumentParser* createArgumentParser() {
 int main(int argc, char **argv) {
     // Command line args. parser
     ArgumentParser* p = createArgumentParser();
-    if (!p->run(argc, argv)) {
+    if (!p->parse(argc, argv))
         std::cout << p; // prints out help msg.
         return 0;
-    }
 
     // MPI init
     int p_rank; // mpi process rank
