@@ -359,6 +359,7 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     }
 }
 
+// Creates argument parser instance 
 ArgumentParser* createArgumentParser() {
     ArgumentParser* p = new ArgumentParser();
 
