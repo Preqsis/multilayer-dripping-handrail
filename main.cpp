@@ -351,9 +351,9 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     drain_dataset->write((double**) drain[0]);
 
     /** Stop all workers (slave) by sending STOP flag (and dummy data) */
-    //double** dummy = alloc_2D_double(cdim[0], cdim[1]);
-    for (unsigned int i=1; i <= n_workers; i++) {
-        MPI_Send(&data_send_master[0][0], cdim[0]*cdim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
+    double** dummy = alloc_2D_double(cdim);
+    for (uint i=1; i <= n_workers; i++) {
+        MPI_Send(&dummy[0][0], cdim[0]*cdim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
     }
 }
 
@@ -407,7 +407,11 @@ int main(int argc, char **argv) {
         cdim[0]++;
     
     // Process specific task
-    (p_rank == MASTER) ? MPI_master(cdim, n_workers, p) : MPI_slave(cdim);
+    if (p_rank == MASTER) {
+        MPI_master(cdim, n_workers, p);
+    } else {
+        MPI_slave(cdim);
+    }
 
     // terminate mpi execution enviroment
     MPI_Finalize();
