@@ -18,7 +18,6 @@ private:
 public:
     ArgumentParser() {}
 
-    /*
     ~ArgumentParser() {
         // delete bools
         for(std::map<std::string, Argument<bool>*>::iterator it = _bools.begin(); it != _bools.end(); it++) {
@@ -40,7 +39,7 @@ public:
             delete it->second;
             _strings.erase(it);
         }
-    }*/
+    }
 
     void addArgument(Argument<bool>* arg) {
         addBool(arg);

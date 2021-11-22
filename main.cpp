@@ -175,7 +175,7 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
         if (p->isSet("last_step")) {
             last_step = p->i("last_step");
         } else {
-            last_step = first_step + s;
+            last_step = first_step + s - 1; // initial state is considered a step
         }
 
         // load attributes to vars from file
@@ -201,7 +201,7 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
         // first and last step
         // CLAs ignored if sim starts without external data
         first_step      = 1;
-        last_step       = first_step + s;
+        last_step       = first_step + s - 1; // initial state is considered a step
         
         // allocate grid
         grid            = alloc_2D_double(dims);
@@ -337,23 +337,25 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     }
 
     // save last step attr
-    if (!outfile->hasAttribute("last_step"))
+    if (!outfile->hasAttribute("last_step")) {
         outfile->createAttribute<uint>("last_step", H5::DataSpace::From(last_step)).write(last_step);
+    }
     outfile->getAttribute("last_step").write(last_step);
 
     // drain dataset
     // write to first non-existent dataset name
     int d = 0;
-    while (outfile->exist("drain_" + std::to_string(d)))
+    while (outfile->exist("drain_" + std::to_string(d))) {
         d += 1;
+    }
     outfile->createDataSet<double>("drain_" + std::to_string(d), H5::DataSpace(drain_dims));
     H5::DataSet* drain_dataset = new H5::DataSet(outfile->getDataSet("drain_" + std::to_string(d)));
     drain_dataset->write((double**) drain[0]);
 
     /** Stop all workers (slave) by sending STOP flag (and dummy data) */
-    double** dummy = alloc_2D_double(cdim);
+    //double** dummy = alloc_2D_double(cdim);
     for (uint i=1; i <= n_workers; i++) {
-        MPI_Send(&dummy[0][0], cdim[0]*cdim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
+        MPI_Send(&data_send_master[0][0], cdim[0]*cdim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
     }
 }
 
@@ -403,8 +405,9 @@ int main(int argc, char **argv) {
     size_t n_jobs               = p->i("idim") * p->i("jdim"); // number of jobs (cells)
     size_t n_workers            = size-1; // number of MPI worker processes 
     std::vector<size_t> cdim    = {n_jobs / n_workers, 11};
-    while (cdim[0] * n_workers < n_jobs) // int. rounding correction
+    while (cdim[0] * n_workers < n_jobs) { // int. rounding correction
         cdim[0]++;
+    }
     
     // Process specific task
     if (p_rank == MASTER) {
