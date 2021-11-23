@@ -16,6 +16,7 @@ namespace H5 = HighFive;
 #include "ArgumentParser.h"
 
 #include "MSMM.h"
+#include "BlobScheduler.h"
 #include "Distributor.h"
 
 typedef boost::array<double, 2> state_type;
@@ -152,6 +153,7 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     lint s                      = (lint)p->i("s");
     lint idim                   = (lint)p->i("idim");
     lint jdim                   = (lint)p->i("jdim");
+    std::vector<size_t> gdim    = {idim, jdim};
     std::vector<size_t> dims    = {idim*jdim, cdim[1]}; // combined grid dimensions
 
     // decide on input type
@@ -247,7 +249,11 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
         * 'Distributor' object
         * - handles mass redistribution (free flow and 'dripping')
         */
-    Distributor* dist = new Distributor(idim, jdim, cdim[0], cdim[1], drain, dx);
+    //Distributor* dist = new Distributor(idim, jdim, cdim[0], cdim[1], drain, dx);
+    Distributor* dist = new Distributor(gdim, cdim, drain);
+    if (p->isSet("blobfile")) {
+        dist->setBlobScheduler(new BlobScheduler(gdim, grid, p->s("blobfile")));
+    }
     dist->setRotationProfile(profile);
 
     /** Save initial state to main dataset */
@@ -278,6 +284,8 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
 
     /** Compute all simulation steps */
     for (uint step=first_step; step <= last_step; step++) {
+
+
         /** Sort, mark (compute flag) and send jobs to specifcdim[0] workers */
         uint w;
         for (uint slave=1; slave<=n_workers; slave++) {
@@ -312,6 +320,7 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
                 }
             }
         }
+        
 
         /** Save recieved data to HDF file in step specifcdim[0]h dataset */
         std::ostringstream ss;
@@ -325,7 +334,7 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
         delete ds;
 
         /** Run distribution handler object on grid */
-        dist->step(grid);
+        dist->step(grid, step);
 
         /** Print percentage msg. */
         if (s >= 100) {
@@ -383,6 +392,7 @@ ArgumentParser* createArgumentParser() {
     // add string args.
     p->addArgument( new Argument<std::string>("output"));
     p->addArgument( new Argument<std::string>("input"));
+    p->addArgument( new Argument<std::string>("blobfile"));
 
     return p;
 }

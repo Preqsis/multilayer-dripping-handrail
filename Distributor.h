@@ -2,6 +2,7 @@
 #define DISTRIBUTOR_H
 
 #include <random>
+#include "BlobScheduler.h"
 
 class Distributor {
 private:
@@ -14,27 +15,38 @@ private:
     double _dx;
     double _q;
     double _zc;
+
     double** _drain;
 
-    std::vector<uint> _probs;
-    std::vector<double> RingTemp;
-    std::vector<double> _RotationProfile;
+    std::vector<size_t> _cdim;          // comms dimensions
+    std::vector<size_t> _gdim;          // grid dimensions
+    std::vector<double> _rProfile;      // rotation profile
+    std::vector<double> _tProfile;      // temperature profile
+
+    BlobScheduler* _scheduler;
+    bool _hasScheduler = false;
 public:
-    Distributor(uint idim, uint jdim, uint ic, uint jc, double** drain, double dx) {
-        _idim = idim;
-        _jdim = jdim;
-        _ic = ic;
-        _jc = jc;
-        _dx = dx;
-        _q = 0.5;
-        _zc = 5.5;
-        _drain = drain;
-        _n = 0;
+    Distributor(std::vector<size_t> gdim, std::vector<size_t> cdim, double** drain) {
+        _gdim   = gdim;
+        _cdim   = cdim;
+        _drain  = drain;
+        _zc     = 5.5;
+        _q      = 0.5;
+    }
+
+    void setBlobScheduler(BlobScheduler* scheduler) {
+        _scheduler      = scheduler;
+        _hasScheduler   = true;
     }
 
     void setRotationProfile(std::vector<double> profile) {
-        _RotationProfile.clear();
-        _RotationProfile = profile;
+        _rProfile.clear();
+        _rProfile = profile;
+    }
+
+    void setTemperatureProfile(std::vector<double> profile) {
+        _tProfile.clear();
+        _tProfile = profile;
     }
 
     double getRandW() {
@@ -44,127 +56,121 @@ public:
         return dist(engine);
     }
 
-    void step(double** grid) {
+    void step (double** grid, uint n) {
+        double mb;
+        double w;
+        double dp;
+        uint k_out, k_in, k;
+        uint k_lower_right, k_lower_left;
+        double j_in, j_out;
+        double part_lower_left, part_lower_right;
+
         // rotace vnejsiho prstence o "jeden pohyb"
         // zabranuje driftovani vliven nepresnosti datovych typu
-        uint k;
-        for (uint j = 0; j < _jdim; j++) {
-            k = j;
-            RingTemp.push_back(grid[k][9]);
+        std::vector<double> tmp;
+        for (uint j = 0; j < _gdim[1]; j++) {
+            tmp.push_back(grid[j][9]);
         }
-        std::rotate(RingTemp.begin(), RingTemp.begin() + 1, RingTemp.end());
-        for (uint j = 0; j < _jdim; j++) {
-            k = j;
-            grid[k][9] = RingTemp[j];
-            grid[k][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
+        std::rotate(tmp.begin(), tmp.begin() + 1, tmp.end());
+        for (uint j = 0; j < _gdim[1]; j++) {
+            grid[j][9] = tmp[j];
+            grid[j][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
         }
-        RingTemp.clear();
 
         // rotace ostatnich podle profilu
-        for (uint i = 1; i < _idim; i++) {
-            for (uint j = 0; j < _jdim; j++) {
-                k = i * _jdim + j;
-                grid[k][9] = std::fmod(grid[k][9] + _RotationProfile[i], 2.0 * M_PI);
+        for (uint i = 1; i < _gdim[0]; i++) {
+            for (uint j = 0; j < _gdim[1]; j++) {
+                k = i * _gdim[1] + j;
+                grid[k][9] = std::fmod(grid[k][9] + _rProfile[i], 2.0 * M_PI);
                 grid[k][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
             }
         }
 
         // nalezeni pritokove bunky + pritok
         uint idx = 0;
-        for (uint j = 0; j < _jdim; j++) {
-            k = j;
-            if (grid[k][9] == 0.0) {
-                idx = k;
+        for (uint j = 0; j < _gdim[1]; j++) {
+            if (grid[j][9] == 0.0) {
+                idx = j;
                 break;
             }
         }
         grid[idx][5] += _q;
         grid[idx][6] = _q; // u pritokove bunky presne odpovida _q, zbytek 0
 
-        double mb;
-        double w;
-        double dp;
-        uint k_out, k_in;
-        uint k_lower_right, k_lower_left;
-        double j_in, j_out;
-        double part_lower_left, part_lower_right;
-        for (uint i=_idim-1; i < _idim; i--) { // od stredu ven, unsigned preskakuje na maximalni hodnotu!!!
-            if (i < _idim - 1) {
-                k_out = i * _jdim + 0;
-                k_in = (i + 1) * _jdim + 0;
-                dp = (double)_jdim * (grid[k_out][9] - grid[k_in][9]) / (2.0 * M_PI);
+        for (uint i=_gdim[0]-1; i < _gdim[0]; i--) { // od stredu ven, unsigned preskakuje na maximalni hodnotu!!!
+            if (i < _gdim[0] - 1) {
+                k_out   = i * _gdim[1] + 0;
+                k_in    = (i + 1) * _gdim[1] + 0;
+                dp      = (double)_gdim[1] * (grid[k_out][9] - grid[k_in][9]) / (2.0 * M_PI);
 
-                for (uint j = 0; j < _jdim; j++) {
-                    k = i * _jdim + j;
+                for (uint j = 0; j < _gdim[1]; j++) {
+                    k = i * _gdim[1] + j;
 
                     if (grid[k][3] < _zc) { // k odtreni nedochazi
                         continue;
                     }
 
                     // urceni vnitrnich prilehajicih bunek
-                    j_in = (double)j + dp;
-                    j_in = (j_in > 0.0) ? j_in : (double)_jdim + j_in;
+                    j_in                    = (double)j + dp;
+                    j_in                    = (j_in > 0.0) ? j_in : (double)_gdim[1] + j_in;
 
-                    k_lower_left = (i + 1) * _jdim + (uint)std::floor(j_in) % _jdim;
-                    k_lower_right = (i + 1) * _jdim + (uint)std::floor(j_in + 1.0) % _jdim;
-
-                    part_lower_right = std::fmod(j_in, 1.0);
-                    part_lower_left = 1.0 - part_lower_right;
+                    k_lower_left            = (i + 1) * _gdim[1] + (uint)std::floor(j_in) % _gdim[1];
+                    k_lower_right           = (i + 1) * _gdim[1] + (uint)std::floor(j_in + 1.0) % _gdim[1];
+                    part_lower_right        = std::fmod(j_in, 1.0);
+                    part_lower_left         = 1.0 - part_lower_right;
                     
                     // odtrzena hmotnost
-                    //mb = grid[k][5] - (0.2 * grid[k][5] + 0.3);
-                    //mb = grid[k][5] * 0.5; // hausnumero
-                    w = getRandW();
-                    mb = grid[k][5] * (0.8 - w);
+                    w                       = getRandW();
+                    mb                      = grid[k][5] * (0.8 - w);
 
                     // odebrat od zdrojove bunky
-                    grid[k][5] -= mb;
+                    grid[k][5]              -= mb;
 
                     // 'vynulovat' rychlost zdrojove bunky
-                    grid[k][4] = 0.0;
+                    grid[k][4]              = 0.0;
                     
                     // reset vychyleni zdrojove bunky
-                    grid[k][3] = 2.0;
+                    grid[k][3]              = 2.0;
 
-                    grid[k_lower_left][5] += part_lower_left * mb; // m
-                    grid[k_lower_left][6] = part_lower_left * mb; // dm
-                    grid[k_lower_right][5] += part_lower_right* mb; // m
-                    grid[k_lower_right][6] = part_lower_right* mb; // dm
+                    grid[k_lower_left][5]   += part_lower_left * mb; // m
+                    grid[k_lower_left][6]   = part_lower_left * mb; // dm
+                    grid[k_lower_right][5]  += part_lower_right* mb; // m
+                    grid[k_lower_right][6]  = part_lower_right* mb; // dm
 
                     // zapsat do drain datasetu
-                    _drain[_n][i] += mb;
+                    _drain[_n][i]           += mb;
                 }
             } else {
-                for (uint j = 0; j < _jdim; j++) {
-                    k = i * _jdim + j;
+                for (uint j = 0; j < _gdim[1]; j++) {
+                    k = i * _gdim[1] + j;
 
                     if (grid[k][3] < _zc) { // k odtreni nedochazi
                         continue;
                     }
 
                     // odtrzena hmotnost
-                    //mb = grid[k][5] - (0.2 * grid[k][5] + 0.3);
-                    //mb = grid[k][5] * 0.5; // hausnumero
-                    w = getRandW();
-                    mb = grid[k][5] * (0.8 - w);
+                    w               = getRandW();
+                    mb              = grid[k][5] * (0.8 - w);
 
                     // odebrat od zdrojove bunky
-                    grid[k][5] -= mb;
+                    grid[k][5]      -= mb;
 
                     // 'vynulovat' rychlost zdrojove bunky
-                    grid[k][4] = 0.0;
+                    grid[k][4]      = 0.0;
                     
                     // reset vychyleni zdrojove bunky
-                    grid[k][3] = 2.0;
+                    grid[k][3]      = 2.0;
                     
                     // hmotu na drain
-                    _drain[_n][i] += mb;
+                    _drain[_n][i]   += mb;
                 }
             }
         }
 
-        _n += 1;
-        
+        // blob?
+        if (_hasScheduler) {
+            _scheduler->run(n);
+        }
     }
 };
 
