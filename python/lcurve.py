@@ -19,11 +19,12 @@ M_secondary = 0.5 * M_sun
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--input", type=str, help="HDF5 data file")
+    p.add_argument("--drain_key", type=str, help="HDF5 data file")
     args = p.parse_args()
 
     f = h5py.File(args.input, "r")
     idim, jdim = f.attrs["idim"], f.attrs["jdim"]
-    data_drain = f["drain"][()]
+    data_drain = f[args.drain_key][()]
     f.close()
 
     q = 1e14 * dt

@@ -318,7 +318,6 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
                 }
             }
         }
-        
 
         /** Save recieved data to HDF file in step specifcdim[0]h dataset */
         std::ostringstream ss;
