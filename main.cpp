@@ -284,8 +284,6 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
 
     /** Compute all simulation steps */
     for (uint step=first_step; step <= last_step; step++) {
-
-
         /** Sort, mark (compute flag) and send jobs to specifcdim[0] workers */
         uint w;
         for (uint slave=1; slave<=n_workers; slave++) {
