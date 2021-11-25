@@ -2,6 +2,7 @@
 #include <cmath>
 #include <mpi.h>
 #include <cstdlib>
+#include <filesystem>
 
 #include <H5Attribute.hpp>
 #include <H5DataSet.hpp>
@@ -16,6 +17,7 @@ namespace H5 = HighFive;
 #include "ArgumentParser.h"
 
 #include "MSMM.h"
+#include "BlobScheduler.h"
 #include "Distributor.h"
 
 typedef boost::array<double, 2> state_type;
@@ -42,6 +44,30 @@ double** alloc_2D_double(int idim, int jdim) {
     return arr;
 }
 
+double*** alloc_3D_double(size_t idim, size_t jdim, size_t kdim) {
+    double ***aaa, **aa, *a;
+    uint i;
+
+    aaa     = (double***) calloc(idim, sizeof(double**));
+    aa      = (double**) calloc(idim * jdim, sizeof(double*));
+    aaa[0]  = aa;
+
+    for (i = 1; i < idim; i++) {
+        aaa[i] = aaa[i - 1] + jdim;
+    }
+    
+    a       = (double *) calloc(idim * jdim * kdim, sizeof(double));
+    aa[0]   = a;
+    for (i = 1; i < idim * jdim; i++) {
+        aa[i] = aa[i - 1] + kdim;
+    }
+    return aaa;
+}
+
+double*** alloc_3D_double(std::vector<size_t> dim) {
+    return alloc_3D_double(dim[0], dim[1], dim[2]);
+}
+
 // alloc 2d double pointer array
 // dims specified by vector
 double** alloc_2D_double(std::vector<size_t> dim) {
@@ -66,6 +92,14 @@ void grid_init(uint idim, uint jdim, double r_in, double r_out, double dx, doubl
             data[k][9] = 2.0 * M_PI * ((double) j) / ((double) jdim); // azimuth (cell specific rotation angle)
             data[k][10] = 1.0; // compute flag (0.0 --> do not compute)
         }
+    }
+}
+
+void writeDataSet(H5::File* file, double** data, std::vector<size_t> dim, std::string key) {
+    if (!file->exist(key)) {
+        H5::DataSet* ds = new H5::DataSet(file->createDataSet<double>(key, H5::DataSpace(dim)));
+        ds->write((double**) data[0]);
+        delete ds;
     }
 }
 
@@ -141,94 +175,61 @@ void MPI_slave(std::vector<size_t> cdim) {
 // Function for MPI master process
 void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     double m_primary, dx, x, r_in, r_out; // system params
+    // from CLAs to easilly accesible vars
+    m_primary       = p->d("m_primary") * M_SUN;
+    dx              = p->d("dx");
+    x               = p->d("x");
+    r_in            = p->d("r_in");
+    r_out           = p->d("r_out");
+
+
+
 
     MPI_Status status;
-    int first_step, last_step; 
-    H5::File* infile; 
-    H5::File* outfile;
-    double** grid;
-
-    bool append                 = p->b("append");
     lint s                      = (lint)p->i("s");
     lint idim                   = (lint)p->i("idim");
     lint jdim                   = (lint)p->i("jdim");
-    std::vector<size_t> dims    = {idim*jdim, cdim[1]}; // combined grid dimensions
 
-    // decide on input type
-    if (p->isSet("input")) { // sim start of external data
-        // input file
-        infile = new H5::File(p->s("input"), H5::File::ReadWrite);
+    // "real" sim dimensions
+    // {rings, cells}
+    std::vector<size_t> dim = {idim, jdim};
 
-        // decide first simulation step
-        // and initial dataset
-        std::string dkey;
-        if (p->isSet("first_step")) {
-            first_step = p->i("first_step");
-            dkey = "data_" + std::to_string(first_step);
-        } else {
-            infile->getAttribute("last_step").read(first_step);
-            dkey = "data_" + std::to_string(first_step);
-            first_step += 1;
-        }
-
-        //decide last simulation step
-        if (p->isSet("last_step")) {
-            last_step = p->i("last_step");
-        } else {
-            last_step = first_step + s - 1; // initial state is considered a step
-        }
-
-        // load attributes to vars from file
-        // ... pozdeji muzu udelat nejakou validaci ale zatim predpokladam ze jsou korektni 
-        infile->getAttribute("dx").read(dx);
-        infile->getAttribute("m_primary").read(m_primary);
-        infile->getAttribute("r_in").read(r_in);
-        infile->getAttribute("r_out").read(r_out);
-
-        // allocate grid
-        grid            = alloc_2D_double(dims);
-
-        // read data to grid
-        infile->getDataSet(dkey).read((double**) grid[0]);
+    // grid allocation
+    // empty vs. external data
+    std::vector<size_t> grid_dim    = {idim*jdim, cdim[1]};
+    double** grid                   = alloc_2D_double(grid_dim);
+    if (p->isSet("mass_file") && p->isSet("mass_dkey")) { // sim start of external data
+        H5::File* mass_infile = new H5::File(p->s("mass_file"), H5::File::ReadOnly);
+        mass_infile->getDataSet(p->s("mass_dkey")).read((double**) grid[0]);
     } else { // sim starts by setting parameters
-        // from CLAs to easilly accesible vars
-        m_primary       = p->d("m_primary") * M_SUN;
-        dx              = p->d("dx");
-        x               = p->d("x");
-        r_in            = p->d("r_in");
-        r_out           = p->d("r_out");
-
-        // first and last step
-        // CLAs ignored if sim starts without external data
-        first_step      = 1;
-        last_step       = first_step + s - 1; // initial state is considered a step
-        
-        // allocate grid
-        grid            = alloc_2D_double(dims);
-        
-        // init 'empty' grid
         grid_init(idim, jdim, r_in, r_out, dx, grid);
     }
 
-    // File attributes (sim metadata)
-    if (append) {
-        outfile = infile;
-    } else {
-        outfile = new H5::File(p->s("output"), H5::File::Overwrite);
-        outfile->createAttribute<int>("idim", H5::DataSpace::From(idim)).write(idim);
-        outfile->createAttribute<int>("jdim", H5::DataSpace::From(jdim)).write(jdim);
-        outfile->createAttribute<double>("r_in", H5::DataSpace::From(r_in)).write(r_in);
-        outfile->createAttribute<double>("r_out", H5::DataSpace::From(r_out)).write(r_out);
-        outfile->createAttribute<double>("m_primary", H5::DataSpace::From(m_primary)).write(m_primary);
-        outfile->createAttribute<double>("dx", H5::DataSpace::From(dx)).write(dx);
+    // if not exist create outdir
+    if (!std::filesystem::is_directory(p->s("outdir"))) {
+        std::filesystem::create_directory(p->s("outdir"));
     }
 
-    // allocate drain 
-    std::vector<size_t> drain_dims  = {s, idim};
-    double** drain                  = alloc_2D_double(drain_dims);
-    for (uint stp=0; stp<drain_dims[0]; stp++)
-        for (uint i=0; i<drain_dims[1]; i++)
-            drain[stp][i] = 0.0;
+    // mass output
+    H5::File* mass_file;
+    mass_file = new H5::File(p->s("outdir") + "/mass.h5", H5::File::Overwrite);
+    mass_file->createAttribute<int>("idim", H5::DataSpace::From(idim)).write(idim);
+    mass_file->createAttribute<int>("jdim", H5::DataSpace::From(jdim)).write(jdim);
+    writeDataSet(mass_file, grid, grid_dim, "data_0"); // initial state save
+
+    // drain allocation
+    std::vector<size_t> drain_dim   = {idim, jdim};
+    double** drain                  = alloc_2D_double(drain_dim);
+    for (uint i=0; i<drain_dim[0]; i++)
+        for (uint j=0; j<drain_dim[1]; j++)
+            drain[i][j] = 0.0;
+
+    // drain output
+    H5::File* drain_file;
+    drain_file = new H5::File(p->s("outdir") + "/drain.h5", H5::File::Overwrite);
+    drain_file->createAttribute<int>("idim", H5::DataSpace::From(idim)).write(idim);
+    drain_file->createAttribute<int>("jdim", H5::DataSpace::From(jdim)).write(jdim);
+    writeDataSet(drain_file, drain, drain_dim, "data_0"); // initial state save
 
     /**
         * 'Rotation profile' 
@@ -247,15 +248,11 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
         * 'Distributor' object
         * - handles mass redistribution (free flow and 'dripping')
         */
-    Distributor* dist = new Distributor(idim, jdim, cdim[0], cdim[1], drain, dx);
-    dist->setRotationProfile(profile);
-
-    /** Save initial state to main dataset */
-    if (!append) {
-        H5::DataSet* ds = new H5::DataSet(outfile->createDataSet<double>("data_0", H5::DataSpace(dims)));
-        ds->write((double**) grid[0]);
-        delete ds;
+    Distributor* dist = new Distributor(dim, cdim, drain);
+    if (p->isSet("blobfile")) {
+        dist->setBlobScheduler(new BlobScheduler(dim, grid, p->s("blobfile")));
     }
+    dist->setRotationProfile(profile);
 
     /* Create jobs set for each worker */
     uint k;
@@ -276,8 +273,9 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
     uint percent = 0;
     uint one_percent = s / 100;
 
+
     /** Compute all simulation steps */
-    for (uint step=first_step; step <= last_step; step++) {
+    for (uint step=1; step <= s; step++) {
         /** Sort, mark (compute flag) and send jobs to specifcdim[0] workers */
         uint w;
         for (uint slave=1; slave<=n_workers; slave++) {
@@ -313,44 +311,23 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
             }
         }
 
-        /** Save recieved data to HDF file in step specifcdim[0]h dataset */
-        std::ostringstream ss;
-        ss << "data_" << step;
-        std::string dname = ss.str();
-        if (!outfile->exist(ss.str())) {
-            outfile->createDataSet<double>(dname, H5::DataSpace(dims));
-        }
-        H5::DataSet* ds = new H5::DataSet(outfile->getDataSet(dname));
-        ds->write((double**) grid[0]);
-        delete ds;
+        // write mass
+        writeDataSet(mass_file, grid, grid_dim, "data_" + std::to_string(step));
 
         /** Run distribution handler object on grid */
-        dist->step(grid);
+        dist->step(grid, step);
+
+        // write drain
+        writeDataSet(drain_file, drain, drain_dim, "data_" + std::to_string(step));
 
         /** Print percentage msg. */
         if (s >= 100) {
-            if (percent != (step - first_step) / one_percent) {
-                percent = (step - first_step) / one_percent;
+            if (percent != step / one_percent) {
+                percent = step / one_percent;
                 std::cout << "Running ... " << percent << "%\t\r" << std::flush;
             }
         }
     }
-
-    // save last step attr
-    if (!outfile->hasAttribute("last_step")) {
-        outfile->createAttribute<uint>("last_step", H5::DataSpace::From(last_step)).write(last_step);
-    }
-    outfile->getAttribute("last_step").write(last_step);
-
-    // drain dataset
-    // write to first non-existent dataset name
-    int d = 0;
-    while (outfile->exist("drain_" + std::to_string(d))) {
-        d += 1;
-    }
-    outfile->createDataSet<double>("drain_" + std::to_string(d), H5::DataSpace(drain_dims));
-    H5::DataSet* drain_dataset = new H5::DataSet(outfile->getDataSet("drain_" + std::to_string(d)));
-    drain_dataset->write((double**) drain[0]);
 
     /** Stop all workers (slave) by sending STOP flag (and dummy data) */
     //double** dummy = alloc_2D_double(cdim);
@@ -363,15 +340,10 @@ void MPI_master(std::vector<size_t> cdim, int n_workers, ArgumentParser* p) {
 ArgumentParser* createArgumentParser() {
     ArgumentParser* p = new ArgumentParser();
 
-    // add boolean args.
-    p->addArgument( new Argument<bool>("append", false));
-
     // add integer args.
     p->addArgument( new Argument<int>("s", 5e5));
     p->addArgument( new Argument<int>("idim"));
     p->addArgument( new Argument<int>("jdim"));
-    p->addArgument( new Argument<int>("first_step", 0));
-    p->addArgument( new Argument<int>("last_step"));
 
     // add double args.
     p->addArgument( new Argument<double>("dx", 0.01));
@@ -381,8 +353,10 @@ ArgumentParser* createArgumentParser() {
     p->addArgument( new Argument<double>("r_out", 50.0 * 6.96e8));
 
     // add string args.
-    p->addArgument( new Argument<std::string>("output"));
-    p->addArgument( new Argument<std::string>("input"));
+    p->addArgument( new Argument<std::string>("outdir"));
+    p->addArgument( new Argument<std::string>("mass_file"));
+    p->addArgument( new Argument<std::string>("mass_dkey"));
+    p->addArgument( new Argument<std::string>("blob_file"));
 
     return p;
 }

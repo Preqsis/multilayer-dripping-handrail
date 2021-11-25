@@ -25,6 +25,16 @@ def extractSteps(input, output, steps) -> None:
             dkey = f"data_{s}"
             print(dkey)
             fo.create_dataset(dkey, data=fi[dkey])
+
+def extractDrain(input, output, steps) -> None:
+    with h5py.File(input, "r") as fi, h5py.File(output, "a") as fo:
+        for dkey in fi.keys():
+            if not re.match("^drain_([0.9]{1,})$", dkey):
+                continue
+            print(dkey)
+            data = fi[dkey][()]
+            data = data[tuple(steps),:].shape
+            fo.create_dataset(dkey, data=data)
         
 def copyAttrs(input, output, add_attrs = {}) -> None:
     with h5py.File(input, "r") as fi, h5py.File(output, "r+") as fo:
@@ -52,6 +62,8 @@ def main() -> None:
         p.error('both --output and --steps must be specified')
 
     extractSteps(args.input, args.output, args.steps)
+
+    extractDrain(args.input, args.output, args.steps)
 
     copyAttrs(args.input, args.output, add_attrs={"n": len(args.steps)})
 

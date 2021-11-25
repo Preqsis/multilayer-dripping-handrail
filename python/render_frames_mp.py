@@ -22,10 +22,10 @@ def worker(fpath, output, frames, w, h, i, lcdepth=200, frange=(0, 100)) -> None
     with h5py.File(fpath, "r") as f:
         idim, jdim = f.attrs["idim"], f.attrs["jdim"]
 
-        data_lc = f["data_lc"][()]
-
-        mlc = (data_lc[:,0] > frange[0] - lcdepth) & (data_lc[:,0] <= frange[1])
-        lc_plot_range = (-data_lc[mlc,1].max()*0.1, data_lc[mlc,1].max()*1.1)
+        #data_lc = f["data_lc"][()]
+        #mlc = (data_lc[:,0] > frange[0] - lcdepth) & (data_lc[:,0] <= frange[1])
+        #lc_plot_range = (-data_lc[mlc,1].max()*0.1, data_lc[mlc,1].max()*1.1)
+        lc_plot_range = (0., 1.)
         
         for frame in frames:
             dkey = f"data_{frame}"
