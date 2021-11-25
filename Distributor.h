@@ -107,6 +107,7 @@ public:
                     k = i * _gdim[1] + j;
 
                     if (grid[k][3] < _zc) { // k odtreni nedochazi
+                        _drain[i][j]            = 0.0;
                         continue;
                     }
 
@@ -137,14 +138,15 @@ public:
                     grid[k_lower_right][5]  += part_lower_right* mb; // m
                     grid[k_lower_right][6]  = part_lower_right* mb; // dm
 
-                    // zapsat do drain datasetu
-                    _drain[_n][i]           += mb;
+                    // hmotu na drain
+                    _drain[i][j]            = mb;
                 }
             } else {
                 for (uint j = 0; j < _gdim[1]; j++) {
                     k = i * _gdim[1] + j;
 
                     if (grid[k][3] < _zc) { // k odtreni nedochazi
+                        _drain[i][j]            = 0.0;
                         continue;
                     }
 
@@ -162,7 +164,7 @@ public:
                     grid[k][3]      = 2.0;
                     
                     // hmotu na drain
-                    _drain[_n][i]   += mb;
+                    _drain[i][j]            = mb;
                 }
             }
         }
