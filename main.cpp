@@ -2,7 +2,6 @@
 #include <cmath>
 #include <mpi.h>
 #include <cstdlib>
-#include <filesystem>
 
 #include <highfive/H5Attribute.hpp>
 #include <highfive/H5DataSet.hpp>
@@ -34,71 +33,8 @@ const int MASTER    = 0;
 const int COMPUTE   = 1;
 const int STOP      = 2;
 
-// 'Empty' grid initalization
-void grid_init(double*** data, std::vector<size_t> dim, double r_in, double r_out, double dx) {
-    for (uint i=0; i< dim[0]; i++) { // rings
-        for (uint j=0; j<dim[1]; j++){ // cells
-            //k = i * jdim + j; // serialized communication data coordinate
-            data[i][j][0] = i; // ring coordinate
-            data[i][j][1] = j; // cell coordinate
-            
-            data[i][j][2] = 0.0; // t
-            data[i][j][3] = 0.0; // z
-            data[i][j][4] = 0.0; // v
-            data[i][j][5] = 0.0; // m
-            data[i][j][6] = 0.0; // dm
-
-            data[i][j][7] = std::pow(r_out, 2.0) / std::pow(r_in + (dim[0] - i - 1) * (r_out - r_in) / (dim[0] - 1), 2.0); // r (ring specific radius)
-            
-            data[i][j][8] = dx; // dx (inner MSMM parameter)
-
-            data[i][j][9] = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
-
-            data[i][j][10] = 1.0; // compute flag (0.0 --> do not compute)
-        }
-    }
-}
-
-// Worker function
-void worker(double** data, MSMM2* model, uint n_cells) {
-    // solver / stepper
-    //boost::numeric::odeint::runge_kutta4<state_type> stepper;
-    //boost::numeric::odeint::runge_kutta_dopri5<state_type> stepper;
-    boost::numeric::odeint::runge_kutta_fehlberg78<state_type> stepper;
-
-    // pres vsechny zadane 'bunky'
-    for (uint i = 0; i < n_cells; i++) {
-        // bunku nepocitat!
-        if (data[i][10] == 0.0) {continue;}
-
-        // bunka s nulovou hmotnosti
-        // rovnice nedavaji smysl
-        if (data[i][5] == 0.0) {continue;}
-
-        // pocatectni podminky
-        double      x = data[i][2];
-        state_type  y = {data[i][3], data[i][4]};
-
-        // velikost kroku
-        double dx = data[i][8];
-
-        // parametry do modelu
-        model->set_m(data[i][5]);
-        model->set_dm(data[i][6] / dx); // pritok urceny vstupem, podeleno krokem aby davalo smysl pro rce.
-        model->set_g(data[i][7]);
-
-        // krok
-        stepper.do_step(*model, y, x, dx);
-
-        // vysledky zpet do datau
-        data[i][2] += dx; // inkrementace casu
-        data[i][3] = y[0]; // z
-        data[i][4] = y[1]; // v
-    }
-}
-
-// Function for MPI slave processes
-void MPI_slave(std::vector<size_t> comm_dim) {
+// Function for "sim" MPI slave processes
+void sim_slave(std::vector<size_t> comm_dim) {
     /** MPI status flag **/
     MPI_Status status;
 
@@ -119,27 +55,54 @@ void MPI_slave(std::vector<size_t> comm_dim) {
             break;
         }
 
-        /** Run worker on recieved data */
-        worker(data, model, comm_dim[0]);
+        // solver / stepper
+        //boost::numeric::odeint::runge_kutta4<state_type> stepper;
+        //boost::numeric::odeint::runge_kutta_dopri5<state_type> stepper;
+        boost::numeric::odeint::runge_kutta_fehlberg78<state_type> stepper;
+
+        // pres vsechny zadane 'bunky'
+        for (uint i = 0; i < comm_dim[0]; i++) {
+            // bunku nepocitat!
+            if (data[i][10] == 0.0) {continue;}
+
+            // bunka s nulovou hmotnosti
+            // rovnice nedavaji smysl
+            if (data[i][5] == 0.0) {continue;}
+
+            // pocatectni podminky
+            double      x = data[i][2];
+            state_type  y = {data[i][3], data[i][4]};
+
+            // velikost kroku
+            double dx = data[i][8];
+
+            // parametry do modelu
+            model->set_m(data[i][5]);
+            model->set_dm(data[i][6] / dx); // pritok urceny vstupem, podeleno krokem aby davalo smysl pro rce.
+            model->set_g(data[i][7]);
+
+            // krok
+            stepper.do_step(*model, y, x, dx);
+
+            // vysledky zpet do datau
+            data[i][2] += dx; // inkrementace casu
+            data[i][3] = y[0]; // z
+            data[i][4] = y[1]; // v
+        }
 
         /** Send results to master */
         MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, 0, COMPUTE, MPI_COMM_WORLD);
     }
 }
 
-// Function for MPI master process
-void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
+// Function for "sim" MPI master process
+void sim_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
     double m_primary, dx, r_in, r_out; // system params
     // from CLAs to easilly accesible vars
     m_primary       = p->d("m_primary") * M_SUN;
-
     dx              = p->d("dx");
-    //x               = p->d("x");
-
     r_in            = p->d("r_in");
     r_out           = p->d("r_out");
-
-
 
     // MPI status flag holder
     MPI_Status status;
@@ -157,13 +120,11 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
         H5::File* mass_infile = new H5::File(p->s("mass_file"), H5::File::ReadOnly);
         mass_infile->getDataSet(p->s("mass_dkey")).read((double***) grid[0][0]);
     } else { // sim starts by setting parameters
-        grid_init(grid, dim, r_in, r_out, dx);
+        sim_grid_init(grid, dim, r_in, r_out, dx);
     }
 
     // if not exist create outdir
-    if (!std::filesystem::is_directory(p->s("outdir"))) {
-        std::filesystem::create_directory(p->s("outdir"));
-    }
+    mkdir(p->s("outdir"));
 
     // mass output
     H5::File* mass_file;
@@ -264,10 +225,48 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
     }
 
     // Stop all workers (slave) by sending STOP flag
-    for (int i=1; i <= n_workers; i++) {
-        MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
+    for (int slave=1; slave <= n_workers; slave++) {
+        MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, STOP, MPI_COMM_WORLD); 
     }
 }
+
+// Function for "rad" MPI slave processes
+void rad_slave(std::vector<size_t> comm_dim) {
+
+}
+
+// Function for "rad" MPI master process
+void rad_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
+
+}
+
+// simulation task
+void sim(int rank, int size, ArgumentParser* p) {
+    // Comms dimensions 
+    size_t n_jobs                   = p->i("idim") * p->i("jdim"); // number of jobs (cells)
+    size_t n_workers                = size-1; // number of MPI worker processes 
+    std::vector<size_t> comm_dim    = {n_jobs / n_workers, 11};
+    while (comm_dim[0] * n_workers < n_jobs) { // int. rounding correction
+        comm_dim[0]++;
+    }
+    
+    // Process specific task
+    if (rank == MASTER) {
+        sim_master(comm_dim, n_workers, p);
+    } else {
+        sim_slave(comm_dim);
+    }
+}
+
+// radiation task
+void rad(int rank, int size, ArgumentParser* p) {
+}
+
+// switch task mapping
+std::map<std::string, int> tasks = {
+    {"sim", 0}, 
+    {"rad", 1}
+};
 
 int main(int argc, char **argv) {
     // create argParser
@@ -286,6 +285,7 @@ int main(int argc, char **argv) {
     p->addArgument( new Argument<double>("r_out", 50.0 * 6.96e8));
 
     // add string args.
+    p->addArgument( new Argument<std::string>("task", "sim")); // select specific task (sim, rad, ...)
     p->addArgument( new Argument<std::string>("outdir"));
     p->addArgument( new Argument<std::string>("mass_file"));
     p->addArgument( new Argument<std::string>("mass_dkey"));
@@ -298,27 +298,23 @@ int main(int argc, char **argv) {
     }
 
     // MPI init
-    int p_rank; // mpi process rank
-    int size; // num of mpi processes
+    int rank, size; // mpi process rank, num of mpi processes
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &p_rank);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    // Comms dimensions 
-    size_t n_jobs                   = p->i("idim") * p->i("jdim"); // number of jobs (cells)
-    size_t n_workers                = size-1; // number of MPI worker processes 
-    std::vector<size_t> comm_dim    = {n_jobs / n_workers, 11};
-    while (comm_dim[0] * n_workers < n_jobs) { // int. rounding correction
-        comm_dim[0]++;
+    // task specific call
+    switch (tasks[p->s("task")]) {
+        case 0:
+            sim(rank, size, p);
+            break;
+        case 1:
+            rad(rank, size, p);
+            break;
+        default:
+            break;
     }
     
-    // Process specific task
-    if (p_rank == MASTER) {
-        MPI_master(comm_dim, n_workers, p);
-    } else {
-        MPI_slave(comm_dim);
-    }
-
     // terminate mpi execution enviroment
     MPI_Finalize();
 

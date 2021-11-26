@@ -1,6 +1,8 @@
 #ifndef FUNCTIONS_CPP
 #define FUNCTINOS_CPP
 
+#include <filesystem>
+
 #include <highfive/H5DataSet.hpp>
 #include <highfive/H5DataSpace.hpp>
 #include <highfive/H5File.hpp>
@@ -62,6 +64,44 @@ void writeDataSet(H5::File* file, double*** data, std::vector<size_t> dim, std::
         H5::DataSet* ds = new H5::DataSet(file->createDataSet<double>(key, H5::DataSpace(dim)));
         ds->write((double***) data[0][0]);
         delete ds;
+    }
+}
+
+// check if dir path exists
+bool isdir(std::string path) {
+    return std::filesystem::is_directory(path);
+}
+
+// create dir if not exists
+void mkdir(std::string path) {
+    // if not exist create outdir
+    if (!isdir(path)) {
+        std::filesystem::create_directory(path);
+    }
+}
+
+// 'Empty' simulation grid initalization
+void sim_grid_init(double*** data, std::vector<size_t> dim, double r_in, double r_out, double dx) {
+    for (uint i=0; i< dim[0]; i++) { // rings
+        for (uint j=0; j<dim[1]; j++){ // cells
+            //k = i * jdim + j; // serialized communication data coordinate
+            data[i][j][0] = i; // ring coordinate
+            data[i][j][1] = j; // cell coordinate
+            
+            data[i][j][2] = 0.0; // t
+            data[i][j][3] = 0.0; // z
+            data[i][j][4] = 0.0; // v
+            data[i][j][5] = 0.0; // m
+            data[i][j][6] = 0.0; // dm
+
+            data[i][j][7] = std::pow(r_out, 2.0) / std::pow(r_in + (dim[0] - i - 1) * (r_out - r_in) / (dim[0] - 1), 2.0); // r (ring specific radius)
+            
+            data[i][j][8] = dx; // dx (inner MSMM parameter)
+
+            data[i][j][9] = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
+
+            data[i][j][10] = 1.0; // compute flag (0.0 --> do not compute)
+        }
     }
 }
 
