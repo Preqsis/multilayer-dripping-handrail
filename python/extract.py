@@ -63,7 +63,7 @@ def main() -> None:
 
     extractSteps(args.input, args.output, args.steps)
 
-    extractDrain(args.input, args.output, args.steps)
+    #extractDrain(args.input, args.output, args.steps)
 
     copyAttrs(args.input, args.output, add_attrs={"n": len(args.steps)})
 

@@ -58,7 +58,7 @@ public:
         double w;
         double dp;
         uint j_right, j_left;
-        double j_in, j_out;
+        double j_in;
         double part_left, part_right;
 
         // rotace vnejsiho prstence o "jeden pohyb"

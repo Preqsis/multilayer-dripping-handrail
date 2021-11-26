@@ -4,17 +4,17 @@
 #include <cstdlib>
 #include <filesystem>
 
-#include <H5Attribute.hpp>
-#include <H5DataSet.hpp>
-#include <H5DataSpace.hpp>
-#include <H5File.hpp>
+#include <highfive/H5Attribute.hpp>
+#include <highfive/H5DataSet.hpp>
+#include <highfive/H5DataSpace.hpp>
+#include <highfive/H5File.hpp>
 namespace H5 = HighFive;
 
 #include <boost/array.hpp>
 #include <boost/numeric/odeint.hpp>
 
-#include "Argument.h"
-#include "ArgumentParser.h"
+#include "argparse-cpp/Argument.h"
+#include "argparse-cpp/ArgumentParser.h"
 
 #include "MSMM.h"
 #include "BlobScheduler.h"
@@ -103,8 +103,7 @@ void MPI_slave(std::vector<size_t> comm_dim) {
     MPI_Status status;
 
     /** Comms matrix allocation */
-    double** data_recv_slave = alloc_2D_double(comm_dim);
-    double** data_send_slave = alloc_2D_double(comm_dim);
+    double** data = alloc_2D_double(comm_dim);
     
     // mass-spring model
     MSMM2* model = new MSMM2();
@@ -112,7 +111,7 @@ void MPI_slave(std::vector<size_t> comm_dim) {
     /** Recieve until STOP */
     while (true) {
         /** Recieve data */
-        MPI_Recv(&data_recv_slave[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        MPI_Recv(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
         /** If STOP --> end slave computation */
         if (status.MPI_TAG == STOP) {
@@ -121,21 +120,21 @@ void MPI_slave(std::vector<size_t> comm_dim) {
         }
 
         /** Run worker on recieved data */
-        worker(data_recv_slave, model, comm_dim[0]);
+        worker(data, model, comm_dim[0]);
 
         /** Send results to master */
-        MPI_Send(&data_recv_slave[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, 0, COMPUTE, MPI_COMM_WORLD);
+        MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, 0, COMPUTE, MPI_COMM_WORLD);
     }
 }
 
 // Function for MPI master process
 void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
-    double m_primary, dx, x, r_in, r_out; // system params
+    double m_primary, dx, r_in, r_out; // system params
     // from CLAs to easilly accesible vars
     m_primary       = p->d("m_primary") * M_SUN;
 
     dx              = p->d("dx");
-    x               = p->d("x");
+    //x               = p->d("x");
 
     r_in            = p->d("r_in");
     r_out           = p->d("r_out");
@@ -205,9 +204,8 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
         dist->setBlobScheduler(new BlobScheduler(dim, grid, p->s("blob_file")));
     dist->setRotationProfile(profile);
 
-    /** Communcdim[0]ation matrix allocation */
-    double** data_send_master = alloc_2D_double(comm_dim);
-    double** data_recv_master = alloc_2D_double(comm_dim);
+    // Communication data 'matrix' allocation
+    double** data = alloc_2D_double(comm_dim);
 
     // Percentage info msg. variables
     uint percent        = 0;
@@ -218,31 +216,31 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
         // Sort, mark (compute flag) and send jobs to specific slave processes
         uint i = 0;
         uint j = 0;
-        for (uint slave=1; slave <= n_workers; slave++) {
+        for (int slave=1; slave <= n_workers; slave++) {
             for (uint c=0; c < comm_dim[0]; c++) {
                 for (uint k=0; k < comm_dim[1]; k++) {
-                    data_send_master[c][k] = grid[i][j][k];
+                    data[c][k] = grid[i][j][k];
                 }
-                data_send_master[c][comm_dim[1]-1] = 1.0;
+                data[c][comm_dim[1]-1] = 1.0;
 
                 i = (i < dim[0]-1) ? i + 1 : 0;
                 j = (j < dim[1]-1) ? j + 1 : 0;
             }
-            MPI_Send(&data_send_master[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, COMPUTE, MPI_COMM_WORLD); // send data to slave
+            MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, COMPUTE, MPI_COMM_WORLD); // send data to slave
         }
 
         // Recieve and sort data back to grid
-        for (uint slave=1; slave <= n_workers; slave++) {
-            MPI_Recv(&data_recv_master[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recv. data
+        for (int slave=1; slave <= n_workers; slave++) {
+            MPI_Recv(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recv. data
 
             for (uint c=0; c<comm_dim[0]; c++) { // back to grid
-                if (data_recv_master[c][comm_dim[1]-1] == 0.0) {continue;} // compute == 1.0 only
+                if (data[c][comm_dim[1]-1] == 0.0) {continue;} // compute == 1.0 only
 
-                uint i = (uint) data_recv_master[c][0];
-                uint j = (uint) data_recv_master[c][1];
+                uint i = (uint) data[c][0];
+                uint j = (uint) data[c][1];
 
                 for (uint k=0; k < comm_dim[1]; k++) {
-                    grid[i][j][k] = data_recv_master[c][k];
+                    grid[i][j][k] = data[c][k];
                 }
             }
         }
@@ -266,8 +264,8 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
     }
 
     // Stop all workers (slave) by sending STOP flag
-    for (uint i=1; i <= n_workers; i++) {
-        MPI_Send(&data_send_master[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
+    for (int i=1; i <= n_workers; i++) {
+        MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
     }
 }
 
