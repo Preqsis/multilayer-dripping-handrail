@@ -16,7 +16,7 @@ typedef std::map<uint, btype> stype;
 class BlobScheduler {
 private:
     stype                   _schedule;
-    double**                _grid;
+    double***               _grid;
     std::vector<size_t>     _dim;
     bool                    _hasSchedule = false;
 public:
@@ -24,11 +24,11 @@ public:
         _dim = dim;
     }
 
-    BlobScheduler(std::vector<size_t> dim, double** grid) : BlobScheduler(dim) {
+    BlobScheduler(std::vector<size_t> dim, double*** grid) : BlobScheduler(dim) {
         setGrid(grid);
     }
 
-    BlobScheduler(std::vector<size_t> dim, double** grid, std::string jsonSchedule) : BlobScheduler(dim, grid) {
+    BlobScheduler(std::vector<size_t> dim, double*** grid, std::string jsonSchedule) : BlobScheduler(dim, grid) {
         setSchedule(jsonSchedule);
         _hasSchedule = true;
     }
@@ -60,7 +60,7 @@ public:
         return _hasSchedule;
     }
 
-    void setGrid(double** grid) {
+    void setGrid(double*** grid) {
         _grid = grid;
     }
 
@@ -75,29 +75,34 @@ public:
 
     void addBlob(BlobData* b) {
         // nalezeni stredove bunky
+        uint ic = b->get_i();
+
+        /*
         double da;
         std::vector<double> das; // pro rozdily mezi zvolenym azm. a azm. bunky
-        for (uint k = b->get_i() * _dim[1]; k < b->get_i() * _dim[1] + _dim[1]; k++) {
-            da = _grid[k][9] - b->get_a();
+        for (uint j = 0; j _dim[1]; j++) {
+            da = _grid[ic][j][9] - b->get_a();
             das.push_back((da < 0.0) ? da * -1.0 : da);
         }
-        uint j  = std::distance(das.begin(), std::min_element(das.begin(), das.end()));
-        uint kc = b->get_i() * _dim[1] + j;
+        uint jc  = std::distance(das.begin(), std::min_element(das.begin(), das.end()));
+        */
 
         // kontrola podminek vsech bunek
         uint ri, rc;
         double lx, ly, l;
-        for (uint k = 0; k < _dim[0] * _dim[1]; k++) {
-            ri  = _dim[0] - _grid[k][0];
-            rc  = _dim[0] - _grid[kc][0];
-            lx  = ri * cos(_grid[k][9]) - rc * cos(b->get_a());
-            ly  = ri * sin(_grid[k][9]) - rc * sin(b->get_a());
-            l   = sqrt(pow(lx, 2.0) + pow(ly, 2.0));
-            if (l > b->get_r()) {
-                continue;
+        for (uint i = 0; i < _dim[0]; i++) {
+            for (uint j = 0; j < _dim[1]; j++) {
+                ri  = _dim[0] - i;
+                rc  = _dim[0] - ic;
+                lx  = ri * cos(_grid[i][j][9]) - rc * cos(b->get_a());
+                ly  = ri * sin(_grid[i][j][9]) - rc * sin(b->get_a());
+                l   = sqrt(pow(lx, 2.0) + pow(ly, 2.0));
+                if (l > b->get_r()) {
+                    continue;
+                }
+                _grid[i][j][5] += (b->get_m() / (0.8 * l));
+                _grid[i][j][6] += (b->get_m() / (0.8 * l));
             }
-            _grid[k][5] += (b->get_m() / (0.8 * l));
-            _grid[k][6] += (b->get_m() / (0.8 * l));
         }
     }
 };
