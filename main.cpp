@@ -20,8 +20,10 @@ namespace H5 = HighFive;
 #include "BlobScheduler.h"
 #include "Distributor.h"
 
+#include "functions.cpp"
+
 typedef boost::array<double, 2> state_type;
-typedef long unsigned int lint;
+typedef long unsigned int luint;
 typedef unsigned int uint;
 
 const double M_SUN  = 1.9891e30;
@@ -32,81 +34,28 @@ const int MASTER    = 0;
 const int COMPUTE   = 1;
 const int STOP      = 2;
 
-// alloc 2d double pointer array
-// dims specified by individual ints
-double** alloc_2D_double(int idim, int jdim) {
-    double** arr;
-    arr     = (double**)calloc(idim, sizeof(double*));
-    arr[0]  = (double*)calloc(idim*jdim, sizeof(double));
-    for (int i = 0; i < idim; i++) {
-        arr[i] = arr[0] + i * jdim;
-    }
-    return arr;
-}
-
-// alloc 2d double pointer array
-// dims specified by vector
-double** alloc_2D_double(std::vector<size_t> dim) {
-    return alloc_2D_double(dim[0], dim[1]);
-}
-
-double*** alloc_3D_double(size_t idim, size_t jdim, size_t kdim) {
-    double ***aaa, **aa, *a;
-    uint i;
-
-    aaa     = (double***) calloc(idim, sizeof(double**));
-    aa      = (double**) calloc(idim * jdim, sizeof(double*));
-    aaa[0]  = aa;
-
-    for (i = 1; i < idim; i++) {
-        aaa[i] = aaa[i - 1] + jdim;
-    }
-    
-    a       = (double *) calloc(idim * jdim * kdim, sizeof(double));
-    aa[0]   = a;
-    for (i = 1; i < idim * jdim; i++) {
-        aa[i] = aa[i - 1] + kdim;
-    }
-    return aaa;
-}
-
-double*** alloc_3D_double(std::vector<size_t> dim) {
-    return alloc_3D_double(dim[0], dim[1], dim[2]);
-}
-
 // 'Empty' grid initalization
-void grid_init(std::vector<size_t> dim, double r_in, double r_out, double dx, double*** data) {
+void grid_init(double*** data, std::vector<size_t> dim, double r_in, double r_out, double dx) {
     for (uint i=0; i< dim[0]; i++) { // rings
         for (uint j=0; j<dim[1]; j++){ // cells
             //k = i * jdim + j; // serialized communication data coordinate
             data[i][j][0] = i; // ring coordinate
             data[i][j][1] = j; // cell coordinate
+            
             data[i][j][2] = 0.0; // t
-            data[i][j][3] = 2.0; // z
+            data[i][j][3] = 0.0; // z
             data[i][j][4] = 0.0; // v
-            data[i][j][5] = 0.5; // m
+            data[i][j][5] = 0.0; // m
             data[i][j][6] = 0.0; // dm
+
             data[i][j][7] = std::pow(r_out, 2.0) / std::pow(r_in + (dim[0] - i - 1) * (r_out - r_in) / (dim[0] - 1), 2.0); // r (ring specific radius)
+            
             data[i][j][8] = dx; // dx (inner MSMM parameter)
+
             data[i][j][9] = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
+
             data[i][j][10] = 1.0; // compute flag (0.0 --> do not compute)
         }
-    }
-}
-
-void writeDataSet(H5::File* file, double** data, std::vector<size_t> dim, std::string key) {
-    if (!file->exist(key)) {
-        H5::DataSet* ds = new H5::DataSet(file->createDataSet<double>(key, H5::DataSpace(dim)));
-        ds->write((double**) data[0]);
-        delete ds;
-    }
-}
-
-void writeDataSet(H5::File* file, double*** data, std::vector<size_t> dim, std::string key) {
-    if (!file->exist(key)) {
-        H5::DataSet* ds = new H5::DataSet(file->createDataSet<double>(key, H5::DataSpace(dim)));
-        ds->write((double***) data[0][0]);
-        delete ds;
     }
 }
 
@@ -127,11 +76,11 @@ void worker(double** data, MSMM2* model, uint n_cells) {
         if (data[i][5] == 0.0) {continue;}
 
         // pocatectni podminky
-        double x        = data[i][2];
-        state_type y    = {data[i][3], data[i][4]};
+        double      x = data[i][2];
+        state_type  y = {data[i][3], data[i][4]};
 
         // velikost kroku
-        double dx       = data[i][8];
+        double dx = data[i][8];
 
         // parametry do modelu
         model->set_m(data[i][5]);
@@ -184,32 +133,32 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
     double m_primary, dx, x, r_in, r_out; // system params
     // from CLAs to easilly accesible vars
     m_primary       = p->d("m_primary") * M_SUN;
+
     dx              = p->d("dx");
     x               = p->d("x");
+
     r_in            = p->d("r_in");
     r_out           = p->d("r_out");
 
 
 
-
+    // MPI status flag holder
     MPI_Status status;
-    lint s                      = (lint)p->i("s");
-    lint idim                   = (lint)p->i("idim");
-    lint jdim                   = (lint)p->i("jdim");
+
+    // number of simulation steps
+    uint steps = p->i("steps");
 
     // "real" sim dimensions
     // {rings, cells, cell_data}
-    std::vector<size_t> dim = {idim, jdim, 11};
+    std::vector<size_t> dim = {(luint)p->i("idim"), (luint)p->i("jdim"), comm_dim[1]};
 
     // grid allocation
-    // empty vs. external data
-    //std::vector<size_t> grid_dim    = {idim*jdim, cdim[1]};
-    double*** grid                   = alloc_3D_double(dim);
+    double*** grid = alloc_3D_double(dim);
     if (p->isSet("mass_file") && p->isSet("mass_dkey")) { // sim start of external data
         H5::File* mass_infile = new H5::File(p->s("mass_file"), H5::File::ReadOnly);
-        mass_infile->getDataSet(p->s("mass_dkey")).read((double**) grid[0]);
+        mass_infile->getDataSet(p->s("mass_dkey")).read((double***) grid[0][0]);
     } else { // sim starts by setting parameters
-        grid_init(dim, r_in, r_out, dx, grid);
+        grid_init(grid, dim, r_in, r_out, dx);
     }
 
     // if not exist create outdir
@@ -238,10 +187,8 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
     drain_file->createAttribute<int>("jdim", H5::DataSpace::From(drain_dim[1])).write(drain_dim[1]);
     writeDataSet(drain_file, drain, drain_dim, "data_0"); // initial state save
 
-    /**
-        * 'Rotation profile' 
-        * - specifies angular velocity for each ring relative to ring i == 0
-        */
+    // Rotation profile
+    // - specifies angular velocity for each ring relative to i == 0
     std::vector<double> profile;
     double T_out = std::pow((4.0 * std::pow(M_PI, 2.0) * std::pow(r_out, 3.0)) / (G * m_primary) , 1.0/2.0);
     double r, T;
@@ -251,29 +198,24 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
         profile.push_back(std::round((std::pow(10.0, 4.0) * T_out * 2.0 * M_PI) / (T * ((double)dim[1]))) / std::pow(10.0, 4.0));
     }
 
-    /**
-        * 'Distributor' object
-        * - handles mass redistribution (free flow and 'dripping')
-        */
+    // Distributor object
+    // handles mass redistribution
     Distributor* dist = new Distributor(grid, drain, dim, drain_dim);
-    if (p->isSet("blobfile")) {
-        dist->setBlobScheduler(new BlobScheduler(dim, grid, p->s("blobfile")));
-    }
+    if (p->isSet("blob_file"))
+        dist->setBlobScheduler(new BlobScheduler(dim, grid, p->s("blob_file")));
     dist->setRotationProfile(profile);
-
 
     /** Communcdim[0]ation matrix allocation */
     double** data_send_master = alloc_2D_double(comm_dim);
     double** data_recv_master = alloc_2D_double(comm_dim);
 
-    /** Percentage info msg. variables */
-    uint percent = 0;
-    uint one_percent = s / 100;
+    // Percentage info msg. variables
+    uint percent        = 0;
+    uint one_percent    = steps / 100;
 
-    /** Compute all simulation steps */
-    for (uint step=1; step <= s; step++) {
-        /** Sort, mark (compute flag) and send jobs to specifcdim[0] workers */
-
+    // Compute all simulation steps
+    for (uint s=1; s < steps; s++) {
+        // Sort, mark (compute flag) and send jobs to specific slave processes
         uint i = 0;
         uint j = 0;
         for (uint slave=1; slave <= n_workers; slave++) {
@@ -285,12 +227,11 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
 
                 i = (i < dim[0]-1) ? i + 1 : 0;
                 j = (j < dim[1]-1) ? j + 1 : 0;
-
             }
             MPI_Send(&data_send_master[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, COMPUTE, MPI_COMM_WORLD); // send data to slave
         }
 
-        /** Recieve and sort data back to grid */
+        // Recieve and sort data back to grid
         for (uint slave=1; slave <= n_workers; slave++) {
             MPI_Recv(&data_recv_master[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recv. data
 
@@ -307,36 +248,35 @@ void MPI_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
         }
 
         // write mass
-        writeDataSet(mass_file, grid, dim, "data_" + std::to_string(step));
+        writeDataSet(mass_file, grid, dim, "data_" + std::to_string(s));
 
-        /** Run distribution handler object on grid */
-        dist->step(step);
+        // Run distribution handler on grid
+        dist->step(s);
 
         // write drain
-        writeDataSet(drain_file, drain, drain_dim, "data_" + std::to_string(step));
+        writeDataSet(drain_file, drain, drain_dim, "data_" + std::to_string(s));
 
-        /** Print percentage msg. */
-        if (s >= 100) {
-            if (percent != step / one_percent) {
-                percent = step / one_percent;
+        // Print percentage msg.
+        if (steps >= 100) {
+            if (percent != s / one_percent) {
+                percent = s / one_percent;
                 std::cout << "Running ... " << percent << "%\t\r" << std::flush;
             }
         }
     }
 
-    /** Stop all workers (slave) by sending STOP flag (and dummy data) */
-    //double** dummy = alloc_2D_double(cdim);
+    // Stop all workers (slave) by sending STOP flag
     for (uint i=1; i <= n_workers; i++) {
         MPI_Send(&data_send_master[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, i, STOP, MPI_COMM_WORLD); 
     }
 }
 
-// Creates argument parser instance 
-ArgumentParser* createArgumentParser() {
+int main(int argc, char **argv) {
+    // create argParser
     ArgumentParser* p = new ArgumentParser();
 
     // add integer args.
-    p->addArgument( new Argument<int>("s", 5e5));
+    p->addArgument( new Argument<int>("steps", 5e5));
     p->addArgument( new Argument<int>("idim"));
     p->addArgument( new Argument<int>("jdim"));
 
@@ -353,12 +293,7 @@ ArgumentParser* createArgumentParser() {
     p->addArgument( new Argument<std::string>("mass_dkey"));
     p->addArgument( new Argument<std::string>("blob_file"));
 
-    return p;
-}
-
-int main(int argc, char **argv) {
     // Command line args. parser
-    ArgumentParser* p = createArgumentParser();
     if (!p->parse(argc, argv)) {
         std::cout << p; // prints out help msg.
         return 0;
@@ -372,8 +307,8 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     // Comms dimensions 
-    size_t n_jobs               = p->i("idim") * p->i("jdim"); // number of jobs (cells)
-    size_t n_workers            = size-1; // number of MPI worker processes 
+    size_t n_jobs                   = p->i("idim") * p->i("jdim"); // number of jobs (cells)
+    size_t n_workers                = size-1; // number of MPI worker processes 
     std::vector<size_t> comm_dim    = {n_jobs / n_workers, 11};
     while (comm_dim[0] * n_workers < n_jobs) { // int. rounding correction
         comm_dim[0]++;
