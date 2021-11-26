@@ -1,9 +1,9 @@
 #ifndef FUNCTIONS_CPP
 #define FUNCTINOS_CPP
 
-#include <H5DataSet.hpp>
-#include <H5DataSpace.hpp>
-#include <H5File.hpp>
+#include <highfive/H5DataSet.hpp>
+#include <highfive/H5DataSpace.hpp>
+#include <highfive/H5File.hpp>
 namespace H5 = HighFive;
 
 // alloc 2D double pointer array
