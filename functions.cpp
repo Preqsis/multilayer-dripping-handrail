@@ -1,12 +1,31 @@
 #ifndef FUNCTIONS_CPP
-#define FUNCTINOS_CPP
+#define FUNCTIONS_CPP
 
+#include <iostream>
 #include <filesystem>
+
+#include <boost/array.hpp>
+#include <boost/numeric/odeint.hpp>
 
 #include <highfive/H5DataSet.hpp>
 #include <highfive/H5DataSpace.hpp>
 #include <highfive/H5File.hpp>
 namespace H5 = HighFive;
+
+typedef boost::array<double, 2> state_type;
+typedef long unsigned int luint;
+typedef unsigned int uint;
+
+const double M_SUN  = 1.9891e30;
+const double G      = 6.6743e-11;
+
+// Compute flags
+const int MASTER    = 0;
+const int COMPUTE   = 1;
+const int STOP      = 2;
+const int SKIP      = 3;
+
+namespace Functions {
 
 // alloc 2D double pointer array
 double** alloc_2D_double(int idim, int jdim) {
@@ -24,26 +43,16 @@ double** alloc_2D_double(std::vector<size_t> dim) {
     return alloc_2D_double(dim[0], dim[1]);
 }
 
-// alloc 3D double pointer array
-double*** alloc_3D_double(size_t idim, size_t jdim, size_t kdim) {
-    double ***aaa, **aa, *a;
-    uint i;
-
-    aaa     = (double***) calloc(idim, sizeof(double**));
-    aa      = (double**) calloc(idim * jdim, sizeof(double*));
-    aaa[0]  = aa;
-
-    for (i = 1; i < idim; i++) {
-        aaa[i] = aaa[i - 1] + jdim;
+double ***alloc_3D_double(int l, int m, int n) {
+    double *data = new double [l*m*n];
+    double ***array = new double **[l];
+    for (int i=0; i<l; i++) {
+        array[i] = new double *[m];
+        for (int j=0; j<m; j++) {
+            array[i][j] = &(data[(i*m+j)*n]);
+        }
     }
-    
-    a       = (double *) calloc(idim * jdim * kdim, sizeof(double));
-    aa[0]   = a;
-    for (i = 1; i < idim * jdim; i++) {
-        aa[i] = aa[i - 1] + kdim;
-    }
-
-    return aaa;
+    return array;
 }
 
 // alloc 3D double pointer array
@@ -80,29 +89,6 @@ void mkdir(std::string path) {
     }
 }
 
-// 'Empty' simulation grid initalization
-void sim_grid_init(double*** data, std::vector<size_t> dim, double r_in, double r_out, double dx) {
-    for (uint i=0; i< dim[0]; i++) { // rings
-        for (uint j=0; j<dim[1]; j++){ // cells
-            //k = i * jdim + j; // serialized communication data coordinate
-            data[i][j][0] = i; // ring coordinate
-            data[i][j][1] = j; // cell coordinate
-            
-            data[i][j][2] = 0.0; // t
-            data[i][j][3] = 0.0; // z
-            data[i][j][4] = 0.0; // v
-            data[i][j][5] = 0.0; // m
-            data[i][j][6] = 0.0; // dm
-
-            data[i][j][7] = std::pow(r_out, 2.0) / std::pow(r_in + (dim[0] - i - 1) * (r_out - r_in) / (dim[0] - 1), 2.0); // r (ring specific radius)
-            
-            data[i][j][8] = dx; // dx (inner MSMM parameter)
-
-            data[i][j][9] = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
-
-            data[i][j][10] = 1.0; // compute flag (0.0 --> do not compute)
-        }
-    }
 }
 
 #endif
