@@ -173,17 +173,23 @@ void sim_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
     uint one_percent    = steps / 100;
 
     // Compute all simulation steps
-    for (uint s=1; s < steps; s++) {
+    uint i, j, k, c;
+    int slave;
+    for (uint s = 1; s < steps; s++) {
         // Sort, mark (compute flag) and send jobs to specific slave processes
-        uint i = 0;
-        uint j = 0;
-        for (int slave=1; slave <= n_workers; slave++) {
-            for (uint c=0; c < comm_dim[0]; c++) {
-                for (uint k=0; k < comm_dim[1]; k++) {
+        i = 0;
+        j = 0;
+        for (slave = 1; slave <= n_workers; slave++) {
+            for (c = 0; c < comm_dim[0]; c++) {
+                for (k = 0; k < comm_dim[1]; k++) {
                     data[c][k] = grid[i][j][k];
                 }
-                data[c][comm_dim[1]-1] = 1.0;
 
+                // compute flag
+                data[c][comm_dim[1]-1] = (i < dim[0]) ? 1.0 : 0.0;
+
+                // cell indexes
+                // rollover je z nejakeho duvodu rychlejsi ???
                 i = (i < dim[0]-1) ? i + 1 : 0;
                 j = (j < dim[1]-1) ? j + 1 : 0;
             }
@@ -191,16 +197,16 @@ void sim_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
         }
 
         // Recieve and sort data back to grid
-        for (int slave=1; slave <= n_workers; slave++) {
+        for (slave = 1; slave <= n_workers; slave++) {
             MPI_Recv(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recv. data
 
-            for (uint c=0; c<comm_dim[0]; c++) { // back to grid
+            for (c = 0; c < comm_dim[0]; c++) { // back to grid
                 if (data[c][comm_dim[1]-1] == 0.0) {continue;} // compute == 1.0 only
 
-                uint i = (uint) data[c][0];
-                uint j = (uint) data[c][1];
+                i = (uint) data[c][0];
+                j = (uint) data[c][1];
 
-                for (uint k=0; k < comm_dim[1]; k++) {
+                for (k = 0; k < comm_dim[1]; k++) {
                     grid[i][j][k] = data[c][k];
                 }
             }
@@ -210,7 +216,7 @@ void sim_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
         writeDataSet(mass_file, grid, dim, "data_" + std::to_string(s));
 
         // Run distribution handler on grid
-        dist->step(s);
+        dist->run(s);
 
         // write drain
         writeDataSet(drain_file, drain, drain_dim, "data_" + std::to_string(s));
@@ -225,20 +231,16 @@ void sim_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) 
     }
 
     // Stop all workers (slave) by sending STOP flag
-    for (int slave=1; slave <= n_workers; slave++) {
+    for (slave = 1; slave <= n_workers; slave++) {
         MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, STOP, MPI_COMM_WORLD); 
     }
 }
 
 // Function for "rad" MPI slave processes
-void rad_slave(std::vector<size_t> comm_dim) {
-
-}
+void rad_slave(std::vector<size_t> comm_dim) {}
 
 // Function for "rad" MPI master process
-void rad_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
-
-}
+void rad_master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {}
 
 // simulation task
 void sim(int rank, int size, ArgumentParser* p) {
@@ -287,9 +289,14 @@ int main(int argc, char **argv) {
     // add string args.
     p->addArgument( new Argument<std::string>("task", "sim")); // select specific task (sim, rad, ...)
     p->addArgument( new Argument<std::string>("outdir"));
+
     p->addArgument( new Argument<std::string>("mass_file"));
     p->addArgument( new Argument<std::string>("mass_dkey"));
+
     p->addArgument( new Argument<std::string>("blob_file"));
+
+    p->addArgument( new Argument<std::string>("drain_file"));
+
 
     // Command line args. parser
     if (!p->parse(argc, argv)) {

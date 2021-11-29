@@ -77,21 +77,11 @@ public:
         // nalezeni stredove bunky
         uint ic = b->get_i();
 
-        /*
-        double da;
-        std::vector<double> das; // pro rozdily mezi zvolenym azm. a azm. bunky
-        for (uint j = 0; j _dim[1]; j++) {
-            da = _grid[ic][j][9] - b->get_a();
-            das.push_back((da < 0.0) ? da * -1.0 : da);
-        }
-        uint jc  = std::distance(das.begin(), std::min_element(das.begin(), das.end()));
-        */
-
         // kontrola podminek vsech bunek
-        uint ri, rc;
+        uint ri, rc, i, j;
         double lx, ly, l;
-        for (uint i = 0; i < _dim[0]; i++) {
-            for (uint j = 0; j < _dim[1]; j++) {
+        for (i = 0; i < _dim[0]; i++) {
+            for (j = 0; j < _dim[1]; j++) {
                 ri  = _dim[0] - i;
                 rc  = _dim[0] - ic;
                 lx  = ri * cos(_grid[i][j][9]) - rc * cos(b->get_a());

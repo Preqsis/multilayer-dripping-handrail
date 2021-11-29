@@ -50,6 +50,9 @@ if __name__ == "__main__":
     p.add_argument("--lcdepth", type=int, default=200, help="Light curve plot depth (default=200)")
     args = p.parse_args()
 
+    if not os.path.isdir(args.output):
+        os.mkdir(args.output)
+
     # frame-sety pro workery
     fsets = np.array_split(np.arange(args.first_frame, args.last_frame+args.s, args.s), args.n)
 

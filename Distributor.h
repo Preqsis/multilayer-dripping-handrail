@@ -53,37 +53,33 @@ public:
         return dist(engine);
     }
 
-    void step (uint n) {
-        double mb;
-        double w;
-        double dp;
-        uint j_right, j_left;
-        double j_in;
-        double part_left, part_right;
+    void run (uint s) {
+        double mb, w, dp, j_in, part_left, part_right;
+        uint i, j, j_right, j_left, idx;
 
         // rotace vnejsiho prstence o "jeden pohyb"
         // zabranuje driftovani vliven nepresnosti datovych typu
         std::vector<double> tmp;
-        for (uint j = 0; j < _dim[1]; j++) {
+        for (j = 0; j < _dim[1]; j++) {
             tmp.push_back(_grid[0][j][9]);
         }
         std::rotate(tmp.begin(), tmp.begin() + 1, tmp.end());
-        for (uint j = 0; j < _dim[1]; j++) {
+        for (j = 0; j < _dim[1]; j++) {
             _grid[0][j][9] = tmp[j];
             _grid[0][j][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
         }
 
         // rotace ostatnich podle profilu
-        for (uint i = 1; i < _dim[0]; i++) {
-            for (uint j = 0; j < _dim[1]; j++) {
+        for (i = 1; i < _dim[0]; i++) {
+            for (j = 0; j < _dim[1]; j++) {
                 _grid[i][j][9] = std::fmod(_grid[i][j][9] + _rProfile[i], 2.0 * M_PI);
                 _grid[i][j][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
             }
         }
 
         // nalezeni pritokove bunky + pritok
-        uint idx = 0;
-        for (uint j = 0; j < _dim[1]; j++) {
+        idx = 0;
+        for (j = 0; j < _dim[1]; j++) {
             if (_grid[0][j][9] == 0.0) {
                 idx = j;
                 break;
@@ -92,12 +88,12 @@ public:
         _grid[0][idx][5] += _q;
         _grid[0][idx][6] = _q; // u pritokove bunky presne odpovida _q, zbytek 0
 
-        for (uint i=_dim[0]-1; i < _dim[0]; i--) { // od stredu ven, unsigned preskakuje na maximalni hodnotu!!!
+        for (i = _dim[0]-1; i < _dim[0]; i--) { // od stredu ven, unsigned preskakuje na maximalni hodnotu!!!
             if (i < _dim[0] - 1) {
                 // posun uhlu mezi prstenci
                 dp      = (double)_dim[1] * (_grid[i][0][9] - _grid[i+1][0][9]) / (2.0 * M_PI);
 
-                for (uint j = 0; j < _dim[1]; j++) {
+                for (j = 0; j < _dim[1]; j++) {
                     //k = i * _gim[1] + j;
 
                     if (_grid[i][j][3] < _zc) { // k odtreni nedochazi
@@ -139,7 +135,7 @@ public:
                     _drain[i][j]            = mb;
                 }
             } else {
-                for (uint j = 0; j < _dim[1]; j++) {
+                for (j = 0; j < _dim[1]; j++) {
                     //k = i * _gdim[1] + j;
 
                     if (_grid[i][j][3] < _zc) { // k odtreni nedochazi
@@ -168,7 +164,7 @@ public:
 
         // blob?
         if (_hasScheduler) {
-            _scheduler->run(n);
+            _scheduler->run(s);
         }
     }
 };
