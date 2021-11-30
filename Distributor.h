@@ -91,8 +91,6 @@ public:
                 dp      = (double)_dim[1] * (_grid[i][0][8] - _grid[i+1][0][8]) / (2.0 * M_PI);
 
                 for (j = 0; j < _dim[1]; j++) {
-                    //k = i * _gim[1] + j;
-
                     if (_grid[i][j][3] < _zc) { // k odtreni nedochazi
                         _grid[i][j][9] = 0.0; 
                         continue;
@@ -134,8 +132,6 @@ public:
                 }
             } else {
                 for (j = 0; j < _dim[1]; j++) {
-                    //k = i * _gdim[1] + j;
-
                     if (_grid[i][j][3] < _zc) { // k odtreni nedochazi
                         _grid[i][j][9] = 0.0; 
                         continue;

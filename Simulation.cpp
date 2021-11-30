@@ -221,14 +221,14 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
                 }
             }
         }
+        
+        // Run distribution handler on grid
+        dist->run(s);
 
         // write mass
         if (writable(wf, wl, s, sf, sl)) {
             fn::writeDataSet(mass_file, grid, dim, "data_" + std::to_string(s));
         }
-
-        // Run distribution handler on grid
-        dist->run(s);
 
         // Print percentage msg.
         if (steps >= 100) {

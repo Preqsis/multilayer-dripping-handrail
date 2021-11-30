@@ -28,8 +28,8 @@ void sim(int rank, int n_workers, ArgumentParser* p) {
 // radiation task
 void rad(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions
-    std::vector<size_t> dim_mass   = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
-    std::vector<size_t> dim_spec    = {dim_mass[0], dim_mass[1], 1000, 2};
+    std::vector<size_t> dim_mass    = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
+    std::vector<size_t> dim_spec    = {dim_mass[0], dim_mass[1], (size_t)((p->d("lam_high") - p->d("lam_low")) / p->d("lam_step") + 1), 2};
 
     // Process specific task
     if (rank == MASTER) {
@@ -61,12 +61,13 @@ int main(int argc, char **argv) {
     p->addArgument( new Argument<std::string>("drain_file"));   // input drain data file
 
     // add double args.
-    p->addArgument( new Argument<double>("dx", 0.01));
-    p->addArgument( new Argument<double>("x", 0.0));
     p->addArgument( new Argument<double>("m_primary", 1.0));
     p->addArgument( new Argument<double>("r_in", 6.96e8));
     p->addArgument( new Argument<double>("r_out", 50.0 * 6.96e8));
 
+    p->addArgument( new Argument<double>("lam_low", 100e-9));
+    p->addArgument( new Argument<double>("lam_high", 900e-9));
+    p->addArgument( new Argument<double>("lam_step", 1e-9));
 
     // Command line args. parser
     if (!p->parse(argc, argv)) {

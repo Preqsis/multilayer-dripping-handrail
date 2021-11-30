@@ -29,7 +29,17 @@ bool is_valid(ArgumentParser* p) {
 }
 
 void spectrum(double*** data_mass, double**** data_spec, std::vector<size_t> dim_mass, std::vector<size_t> dim_spec) {
-    
+    for (size_t i = 0; i < dim_spec[0]; i++) {
+        for (size_t j = 0; j < dim_spec[1]; j++) {
+            for (size_t k = 0; k < dim_spec[2]; k++) {
+                
+
+                data_spec[i][j][k][1] = 1.0;
+
+
+            }
+        }
+    }
 }
 
 void slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec) {
@@ -81,6 +91,17 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
         double*** data_mass     = fn::alloc_3D_double(dim_mass);
         double**** data_spec    = fn::alloc_4D_double(dim_spec);
 
+        // Spectrum range init
+        double lam_low  = p->d("lam_low");
+        double lam_step = p->d("lam_step");
+        for (size_t i = 0; i < dim_spec[0]; i++){
+            for (size_t j = 0; j < dim_spec[1]; j++){
+                for (size_t k = 0; k < dim_spec[2]; k++){
+                    data_spec[i][j][k][0] = lam_low + ((double) k) * lam_step;
+                }
+            }
+        }
+
         while (true) {
             // out
             for (slave = 1; slave <= n_workers; slave++) {
@@ -93,10 +114,7 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
                 }
 
                 MPI_Send(&data_mass[0][0][0], len_mass, MPI_DOUBLE, slave, (skip) ? SKIP : COMPUTE, MPI_COMM_WORLD); 
-
-                std::cout << s + shift << std::endl;
             }
-            
 
             // in
             for (slave = 1; slave <= n_workers; slave++) {
