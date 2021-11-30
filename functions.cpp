@@ -43,15 +43,14 @@ double** alloc_2D_double(std::vector<size_t> dim) {
     return alloc_2D_double(dim[0], dim[1]);
 }
 
-double ***alloc_3D_double(int l, int m, int n) {
-    double *data = new double [l*m*n];
-
-    double ***array = new double **[l];
-    for (int i=0; i<l; i++) {
-        
-        array[i] = new double *[m];
-        for (int j=0; j<m; j++) {
-            array[i][j] = &(data[(i*m+j)*n]);
+// alloc 3D double pointer array
+double ***alloc_3D_double(size_t idim, size_t jdim, size_t kdim) {
+    double *data = new double [idim * jdim * kdim];
+    double ***array = new double **[idim];
+    for (size_t i=0; i<idim; i++) {
+        array[i] = new double *[jdim];
+        for (size_t j = 0; j < jdim; j++) {
+            array[i][j] = &(data[(i*jdim+j)*kdim]);
         }
     }
     return array;
@@ -60,6 +59,27 @@ double ***alloc_3D_double(int l, int m, int n) {
 // alloc 3D double pointer array
 double*** alloc_3D_double(std::vector<size_t> dim) {
     return alloc_3D_double(dim[0], dim[1], dim[2]);
+}
+
+// alloc 4D double pointer array
+double**** alloc_4D_double(size_t idim, size_t jdim, size_t kdim, size_t ldim) {
+    double *data = new double [idim * jdim * kdim * ldim];
+    double ****array = new double ***[idim];
+    for (size_t i=0; i<idim; i++) {
+        array[i] = new double **[jdim];
+        for (size_t j = 0; j < jdim; j++) {
+            array[i][j] = new double *[kdim];
+            for (size_t k = 0; k < kdim; k++) {
+                array[i][j][k] = &(data[((i*jdim+j)*kdim+k)*ldim]);
+            }
+        }
+    }
+    return array;
+}
+
+// alloc 4D double pointer array
+double**** alloc_4D_double(std::vector<size_t> dim) {
+    return alloc_4D_double(dim[0], dim[1], dim[2], dim[3]);
 }
 
 void writeDataSet(H5::File* file, double** data, std::vector<size_t> dim, std::string key) {
@@ -74,6 +94,14 @@ void writeDataSet(H5::File* file, double*** data, std::vector<size_t> dim, std::
     if (!file->exist(key)) {
         H5::DataSet* ds = new H5::DataSet(file->createDataSet<double>(key, H5::DataSpace(dim)));
         ds->write((double***) data[0][0]);
+        delete ds;
+    }
+}
+
+void writeDataSet(H5::File* file, double**** data, std::vector<size_t> dim, std::string key) {
+    if (!file->exist(key)) {
+        H5::DataSet* ds = new H5::DataSet(file->createDataSet<double>(key, H5::DataSpace(dim)));
+        ds->write((double****) data[0][0][0]);
         delete ds;
     }
 }

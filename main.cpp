@@ -12,7 +12,7 @@
 void sim(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions 
     size_t n_jobs                   = p->i("idim") * p->i("jdim"); // number of jobs (cells)
-    std::vector<size_t> comm_dim    = {n_jobs / n_workers, 11};
+    std::vector<size_t> comm_dim    = {n_jobs / n_workers, 13};
     while (comm_dim[0] * n_workers < n_jobs) { // int. rounding correction
         comm_dim[0]++;
     }
@@ -28,13 +28,14 @@ void sim(int rank, int n_workers, ArgumentParser* p) {
 // radiation task
 void rad(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions
-    std::vector<size_t> comm_dim = {10, 10};
+    std::vector<size_t> dim_mass   = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
+    std::vector<size_t> dim_spec    = {dim_mass[0], dim_mass[1], 1000, 2};
 
     // Process specific task
     if (rank == MASTER) {
-        Radiation::master(comm_dim, n_workers, p);
+        Radiation::master(dim_mass, dim_spec, n_workers, p);
     } else {
-        Radiation::slave(comm_dim);
+        Radiation::slave(dim_mass, dim_spec);
     }
 }
 
@@ -46,6 +47,8 @@ int main(int argc, char **argv) {
     p->addArgument( new Argument<int>("step_n", 5e5));          // number of simulation steps
     p->addArgument( new Argument<int>("step_first"));           // first step in range
     p->addArgument( new Argument<int>("step_last"));            // last step in range
+    p->addArgument( new Argument<int>("step_wfirst"));          // first step to save
+    p->addArgument( new Argument<int>("step_wlast"));           // first step to save
     p->addArgument( new Argument<int>("idim"));                 // number of layers(rings)
     p->addArgument( new Argument<int>("jdim"));                 // number of cell is each layer
 

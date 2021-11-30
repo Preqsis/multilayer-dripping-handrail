@@ -21,12 +21,9 @@ private:
     BlobScheduler* _scheduler;
     bool _hasScheduler = false;
 public:
-    Distributor(double*** grid, double** drain, std::vector<size_t> dim, std::vector<size_t> drain_dim) {
-        _grid       = grid;
-        _drain      = drain;
-        _dim        = dim;
-        _drain_dim  = drain_dim;
-
+    Distributor(double*** grid, std::vector<size_t> dim) {
+        _grid   = grid;
+        _dim    = dim;
         _zc     = 5.5;
         _q      = 0.5;
     }
@@ -61,18 +58,18 @@ public:
         // zabranuje driftovani vliven nepresnosti datovych typu
         std::vector<double> tmp;
         for (j = 0; j < _dim[1]; j++) {
-            tmp.push_back(_grid[0][j][9]);
+            tmp.push_back(_grid[0][j][8]);
         }
         std::rotate(tmp.begin(), tmp.begin() + 1, tmp.end());
         for (j = 0; j < _dim[1]; j++) {
-            _grid[0][j][9] = tmp[j];
+            _grid[0][j][8] = tmp[j];
             _grid[0][j][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
         }
 
         // rotace ostatnich podle profilu
         for (i = 1; i < _dim[0]; i++) {
             for (j = 0; j < _dim[1]; j++) {
-                _grid[i][j][9] = std::fmod(_grid[i][j][9] + _rProfile[i], 2.0 * M_PI);
+                _grid[i][j][8] = std::fmod(_grid[i][j][8] + _rProfile[i], 2.0 * M_PI);
                 _grid[i][j][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
             }
         }
@@ -80,7 +77,7 @@ public:
         // nalezeni pritokove bunky + pritok
         idx = 0;
         for (j = 0; j < _dim[1]; j++) {
-            if (_grid[0][j][9] == 0.0) {
+            if (_grid[0][j][8] == 0.0) {
                 idx = j;
                 break;
             }
@@ -91,13 +88,13 @@ public:
         for (i = _dim[0]-1; i < _dim[0]; i--) { // od stredu ven, unsigned preskakuje na maximalni hodnotu!!!
             if (i < _dim[0] - 1) {
                 // posun uhlu mezi prstenci
-                dp      = (double)_dim[1] * (_grid[i][0][9] - _grid[i+1][0][9]) / (2.0 * M_PI);
+                dp      = (double)_dim[1] * (_grid[i][0][8] - _grid[i+1][0][8]) / (2.0 * M_PI);
 
                 for (j = 0; j < _dim[1]; j++) {
                     //k = i * _gim[1] + j;
 
                     if (_grid[i][j][3] < _zc) { // k odtreni nedochazi
-                        _drain[i][j] = 0.0;
+                        _grid[i][j][9] = 0.0; 
                         continue;
                     }
 
@@ -117,7 +114,8 @@ public:
                     mb                      = _grid[i][j][5] * (0.8 - w);
                     
                     // odebrat od zdrojove bunky
-                    _grid[i][j][5]          -= mb;
+                    _grid[i][j][5]          -= mb; // m
+                    _grid[i][j][6]          -= mb; // dm
 
                     // 'vynulovat' rychlost zdrojove bunky
                     _grid[i][j][4]          = 0.0;
@@ -132,14 +130,14 @@ public:
                     _grid[i+1][j_right][6] = part_right* mb; // dm
 
                     // hmotu na drain
-                    _drain[i][j]            = mb;
+                    _grid[i][j][9] = mb;
                 }
             } else {
                 for (j = 0; j < _dim[1]; j++) {
                     //k = i * _gdim[1] + j;
 
                     if (_grid[i][j][3] < _zc) { // k odtreni nedochazi
-                        _drain[i][j] = 0.0;
+                        _grid[i][j][9] = 0.0; 
                         continue;
                     }
 
@@ -149,15 +147,16 @@ public:
 
                     // odebrat od zdrojove bunky
                     _grid[i][j][5]  -= mb;
+                    _grid[i][j][6]  -= mb;
 
                     // 'vynulovat' rychlost zdrojove bunky
                     _grid[i][j][4]  = 0.0;
                     
                     // reset vychyleni zdrojove bunky
-                    _grid[i][j][3]      = 2.0;
+                    _grid[i][j][3]  = 2.0;
                     
                     // hmotu na drain
-                    _drain[i][j]            = mb;
+                    _grid[i][j][9] = mb;
                 }
             }
         }

@@ -32,7 +32,7 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
         for j in range(jdim):
             #k = i * jdim + j
 
-            m, azm = data[i][j][5], data[i][j][9] % (2. * np.pi)
+            m, azm = data[i][j][5], data[i][j][8] % (2. * np.pi)
 
             rgba = colormap(m / mlimit)
 

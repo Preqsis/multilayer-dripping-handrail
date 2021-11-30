@@ -20,15 +20,15 @@ private:
     std::vector<size_t>     _dim;
     bool                    _hasSchedule = false;
 public:
-    BlobScheduler(std::vector<size_t> dim) {
-        _dim = dim;
-    }
-
-    BlobScheduler(std::vector<size_t> dim, double*** grid) : BlobScheduler(dim) {
+    BlobScheduler(double*** grid) {
         setGrid(grid);
     }
 
-    BlobScheduler(std::vector<size_t> dim, double*** grid, std::string jsonSchedule) : BlobScheduler(dim, grid) {
+    BlobScheduler(double*** grid, std::vector<size_t> dim) : BlobScheduler(grid) {
+        _dim = dim;
+    }
+
+    BlobScheduler(double*** grid, std::vector<size_t> dim, std::string jsonSchedule) : BlobScheduler(grid, dim) {
         setSchedule(jsonSchedule);
         _hasSchedule = true;
     }
@@ -84,8 +84,8 @@ public:
             for (j = 0; j < _dim[1]; j++) {
                 ri  = _dim[0] - i;
                 rc  = _dim[0] - ic;
-                lx  = ri * cos(_grid[i][j][9]) - rc * cos(b->get_a());
-                ly  = ri * sin(_grid[i][j][9]) - rc * sin(b->get_a());
+                lx  = ri * cos(_grid[i][j][8]) - rc * cos(b->get_a());
+                ly  = ri * sin(_grid[i][j][8]) - rc * sin(b->get_a());
                 l   = sqrt(pow(lx, 2.0) + pow(ly, 2.0));
                 if (l > b->get_r()) {
                     continue;
