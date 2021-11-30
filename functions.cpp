@@ -45,8 +45,10 @@ double** alloc_2D_double(std::vector<size_t> dim) {
 
 double ***alloc_3D_double(int l, int m, int n) {
     double *data = new double [l*m*n];
+
     double ***array = new double **[l];
     for (int i=0; i<l; i++) {
+        
         array[i] = new double *[m];
         for (int j=0; j<m; j++) {
             array[i][j] = &(data[(i*m+j)*n]);
