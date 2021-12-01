@@ -16,9 +16,6 @@ typedef boost::array<double, 2> state_type;
 typedef long unsigned int luint;
 typedef unsigned int uint;
 
-const double M_SUN  = 1.9891e30;
-const double G      = 6.6743e-11;
-
 // Compute flags
 const int MASTER    = 0;
 const int COMPUTE   = 1;

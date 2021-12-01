@@ -5,6 +5,11 @@
 #include "argparse-cpp/ArgumentParser.h"
 
 #include "functions.cpp"
+namespace fn = Functions;
+
+#include "constants.cpp"
+namespace cs = Constants;
+
 #include "Simulation.cpp"
 #include "Radiation.cpp"
 
@@ -35,7 +40,7 @@ void rad(int rank, int n_workers, ArgumentParser* p) {
     if (rank == MASTER) {
         Radiation::master(dim_mass, dim_spec, n_workers, p);
     } else {
-        Radiation::slave(dim_mass, dim_spec);
+        Radiation::slave(dim_mass, dim_spec, p);
     }
 }
 
@@ -61,13 +66,13 @@ int main(int argc, char **argv) {
     p->addArgument( new Argument<std::string>("drain_file"));   // input drain data file
 
     // add double args.
-    p->addArgument( new Argument<double>("m_primary", 1.0));
-    p->addArgument( new Argument<double>("r_in", 6.96e8));
-    p->addArgument( new Argument<double>("r_out", 50.0 * 6.96e8));
+    p->addArgument( new Argument<double>("m_primary", 0.8));
+    p->addArgument( new Argument<double>("r_in", 5e8));
+    p->addArgument( new Argument<double>("r_out", 50.0 * 5e8));
 
-    p->addArgument( new Argument<double>("lam_low", 100e-9));
-    p->addArgument( new Argument<double>("lam_high", 900e-9));
-    p->addArgument( new Argument<double>("lam_step", 1e-9));
+    p->addArgument( new Argument<double>("lam_low", 1e-5));
+    p->addArgument( new Argument<double>("lam_high", 9e-5));
+    p->addArgument( new Argument<double>("lam_step", 1e-7));
 
     // Command line args. parser
     if (!p->parse(argc, argv)) {
