@@ -126,8 +126,12 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
     // MPI status flag holder
     MPI_Status status;
 
+    // verbosity?
+    bool v = p->b("v");
+
     // number of simulation steps
     uint steps = p->i("step_n");
+    int one_percent = steps / 100;
 
     // write checking vars
     bool wf = p->isSet("step_wfirst");
@@ -183,10 +187,6 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
     // Communication data 'matrix' allocation
     double** data = fn::alloc_2D_double(comm_dim);
 
-    // Percentage info msg. variables
-    uint percent        = 0;
-    uint one_percent    = steps / 100;
-
     // Compute all simulation steps
     uint i, j, k, c;
     int slave;
@@ -235,11 +235,10 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
             fn::writeDataSet(mass_file, grid, dim, "data_" + std::to_string(s));
         }
 
-        // Print percentage msg.
-        if (steps >= 100) {
-            if (percent != s / one_percent) {
-                percent = s / one_percent;
-                std::cout << "Running ... " << percent << "%\t\r" << std::flush;
+        // info msg.
+        if (v) {
+            if (one_percent == 0 || s % one_percent == 0) {
+                std::cout << "Mass distribution ... " << (int) (100.0 * s / (steps)) << "%\t\r" << std::flush;
             }
         }
     }
@@ -247,6 +246,11 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
     // Stop all workers (slave) by sending STOP flag
     for (slave = 1; slave <= n_workers; slave++) {
         MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, STOP, MPI_COMM_WORLD); 
+    }
+
+    // info msg.
+    if (v) {
+        std::cout << std::endl << "Done ..." << std::endl;
     }
 }
 

@@ -108,11 +108,18 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
     bool skip;
     int slave;
     int shift;
-    int s           = p->i("step_first");
+    int step_first  = p->i("step_first");
+    int s           = step_first;
     int step_last   = p->i("step_last");
+    int one_percent = (step_last - step_first) / 100;
 
-    // input drain file / output spectrum file
-    H5::File* mass_file = new H5::File(p->s("mass_file"), H5::File::ReadOnly);
+    // verbosity?
+    bool v = p->b("v");
+
+
+    // input drain file / output spectrum File
+    std::string mass_fpath = (p->isSet("mass_file")) ? p->s("mass_file") : p->s("outdir") + "/mass.h5";
+    H5::File* mass_file = new H5::File(mass_fpath, H5::File::ReadOnly);
     H5::File* spec_file = new H5::File(p->s("outdir") + "/spectrum.h5", H5::File::Overwrite);
 
     // Comm length
@@ -122,6 +129,7 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
     // Comms data allocation
     double*** data_mass     = fn::alloc_3D_double(dim_mass);
     double**** data_spec    = fn::alloc_4D_double(dim_spec);
+    
 
     while (true) {
         // out
@@ -137,7 +145,6 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
             MPI_Send(&data_mass[0][0][0], len_mass, MPI_DOUBLE, slave, (skip) ? SKIP : COMPUTE, MPI_COMM_WORLD); 
         }
 
-
         // in
         for (slave = 1; slave <= n_workers; slave++) {
             shift   = slave - 1;
@@ -149,14 +156,25 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
                 fn::writeDataSet(spec_file, data_spec, dim_spec, dkey); // initial state save
             }
         }
-
+        
+        // info msg.
+        if (v) {
+            if (one_percent == 0 || (s - step_first) % one_percent == 0) {
+                std::cout << "Radiation ... " << (int) (100.0 * (double) (s - step_first) / (step_last - step_first)) << "%\t\r" << std::flush;
+            }
+        }
+        
         s += n_workers;
-
         if (s > step_last) {break;}
     }
     
-
+    // end slaves
     terminate(dim_mass, n_workers);
+
+    // info msg.
+    if (v) {
+        std::cout << std::endl << "Done ..." << std::endl;
+    }
 }
 
 }

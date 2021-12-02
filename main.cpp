@@ -45,41 +45,6 @@ void rad(int rank, int n_workers, ArgumentParser* p) {
 }
 
 int main(int argc, char **argv) {
-    // create argParser
-    ArgumentParser* p = new ArgumentParser();
-
-    // add integer args.
-    p->addArgument( new Argument<int>("step_n", 5e5));          // number of simulation steps
-    p->addArgument( new Argument<int>("step_first"));           // first step in range
-    p->addArgument( new Argument<int>("step_last"));            // last step in range
-    p->addArgument( new Argument<int>("step_wfirst"));          // first step to save
-    p->addArgument( new Argument<int>("step_wlast"));           // first step to save
-    p->addArgument( new Argument<int>("idim"));                 // number of layers(rings)
-    p->addArgument( new Argument<int>("jdim"));                 // number of cell is each layer
-
-    // add string args.
-    p->addArgument( new Argument<std::string>("task", "sim"));  // select specific task (sim, rad, ...)
-    p->addArgument( new Argument<std::string>("outdir"));       // data output directory
-    p->addArgument( new Argument<std::string>("mass_file"));    // input mass data file
-    p->addArgument( new Argument<std::string>("mass_dkey"));    // initial data key of input mass file
-    p->addArgument( new Argument<std::string>("blob_file"));    // input blob json file
-    p->addArgument( new Argument<std::string>("drain_file"));   // input drain data file
-
-    // add double args.
-    p->addArgument( new Argument<double>("m_primary", 0.8));
-    p->addArgument( new Argument<double>("r_in", 5e8));
-    p->addArgument( new Argument<double>("r_out", 50.0 * 5e8));
-
-    p->addArgument( new Argument<double>("lam_low", 1e-5));
-    p->addArgument( new Argument<double>("lam_high", 9e-5));
-    p->addArgument( new Argument<double>("lam_step", 1e-7));
-
-    // Command line args. parser
-    if (!p->parse(argc, argv)) {
-        std::cout << p; // prints out help msg.
-        return 0;
-    }
-
     // MPI init
     int rank, size, n_workers; // mpi process rank, num of mpi processes
     MPI_Init(&argc, &argv);
@@ -87,10 +52,73 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     n_workers = size-1;
 
+    // create argParser
+    ArgumentParser* p = new ArgumentParser();
+
+    // 
+    p->addArgument(new Argument<bool>("v", false));     // verbosity
+    p->addArgument(new Argument<bool>("sim", false));   // run mass distribution sim
+    p->addArgument(new Argument<bool>("rad", false));   // run radiation output computation
+
+    // Steps (number of steps, range, etc.)
+    p->addArgument( new Argument<int>("step_n", 5e5));  // number of simulation steps
+    p->addArgument( new Argument<int>("step_first"));   // first step in range
+    p->addArgument( new Argument<int>("step_last"));    // last step in range
+    p->addArgument( new Argument<int>("step_wfirst"));  // first step to save
+    p->addArgument( new Argument<int>("step_wlast"));   // first step to save
+
+    // Disk dimensions
+    Argument<int>* idim = new Argument<int>("idim");    // number of layers
+    idim->setRequired(true);
+    p->addArgument(idim);
+    Argument<int>* jdim = new Argument<int>("jdim");    // number of cells in each layer
+    jdim->setRequired(true);
+    p->addArgument(jdim);
+
+    // Task selection
+    //p->addArgument( new Argument<std::string>("task", "sim"));  // select specific task (sim, rad, ...)
+
+    // Input / output defs
+    Argument<std::string>* outdir = new Argument<std::string>("outdir");        // data output directory
+    outdir->setRequired(true);
+    p->addArgument(outdir);                                     
+    Argument<std::string>* mass_file = new Argument<std::string>("mass_file");  // input mass_file
+    mass_file->setRequired(false);
+    p->addArgument(mass_file);                                     
+    p->addArgument( new Argument<std::string>("mass_dkey"));                    // initial data key of input mass file
+    p->addArgument( new Argument<std::string>("blob_file"));                    // input blob json file
+
+    // Simulated system parameters
+    p->addArgument( new Argument<double>("m_primary", 0.8));
+    p->addArgument( new Argument<double>("r_in", 5e8));
+    p->addArgument( new Argument<double>("r_out", 50.0 * 5e8));
+
+    // Radiation wavelength specification (range, step)
+    p->addArgument( new Argument<double>("lam_low", 1e-5));
+    p->addArgument( new Argument<double>("lam_high", 9e-5));
+    p->addArgument( new Argument<double>("lam_step", 1e-7));
+
+    // Command line args. parser
+    if (!p->parse(argc, argv)) {
+        if (rank == MASTER) {
+            std::cout << *p; // prints out help msg.
+        }
+        return 0;
+    }
+
+    /*
     // task specific call
     if (p->s("task") == "sim") {
         sim(rank, n_workers, p);
     } else if (p->s("task") == "rad") {
+        rad(rank, n_workers, p);
+    }*/
+
+    if (p->b("sim")) {
+        sim(rank, n_workers, p);
+    }
+
+    if (p->b("rad")) {
         rad(rank, n_workers, p);
     }
     
