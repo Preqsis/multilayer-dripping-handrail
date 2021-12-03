@@ -1,8 +1,6 @@
-#ifndef SIMULATION_CPP
-#define SIMULATION_CPP
-
 #include <iostream>
 #include <math.h>
+#include <mpi.h>
 
 #include <highfive/H5Attribute.hpp>
 #include <highfive/H5DataSet.hpp>
@@ -13,24 +11,29 @@ namespace H5 = HighFive;
 #include <boost/array.hpp>
 #include <boost/numeric/odeint.hpp>
 
+#include "argparse-cpp/ArgumentParser.h"
+
 #include "MSMM.h"
 
-//#include "BlobScheduler.hpp"
+#include "BlobScheduler.hpp"
 
 #include "Distributor.hpp"
 
-#include "functions.cpp"
+#include "Functions.hpp"
 namespace fn = Functions;
 
-namespace Simulation {
+#include "Constants.hpp"
+namespace cs = Constants;
+
+#include "Simulation.hpp"
 
 // dataset write check function
-bool writable(bool wf, bool wl, uint s, uint sf, uint sl) {
+bool Simulation::writable(bool wf, bool wl, uint s, uint sf, uint sl) {
     return (!wf && !wl) || (wf && !wl && sf <= s) || (!wf && wl && s <= sl) || (wf && wl && sf <= s && s <= sl);
 }
 
 // 'Empty' simulation grid initalization
-void grid_init(double*** data, std::vector<size_t> dim, ArgumentParser* p) {
+void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentParser* p) {
     double r_in     = p->d("r_in");
     double r_out    = p->d("r_out");
     double T_in     = std::pow((3.0 * cs::G * p->d("m_primary") * cs::m_sun * 1e17 / (8.0 * M_PI * cs::k * std::pow(r_in, 3.0))), 0.25);
@@ -53,7 +56,7 @@ void grid_init(double*** data, std::vector<size_t> dim, ArgumentParser* p) {
 }
 
 // Function for "sim" MPI slave processes
-void slave(std::vector<size_t> dim, ArgumentParser* p) {
+void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
     /** MPI status flag **/
     MPI_Status status;
 
@@ -116,7 +119,7 @@ void slave(std::vector<size_t> dim, ArgumentParser* p) {
 }
 
 // Function for "sim" MPI master process
-void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
+void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
     double m_primary, r_in, r_out; // system params
     // from CLAs to easilly accesible vars
     m_primary       = p->d("m_primary") * cs::m_sun;
@@ -261,8 +264,4 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
         std::cout << std::endl << "Done ..." << std::endl;
     }
 }
-
-}
-
-#endif
 

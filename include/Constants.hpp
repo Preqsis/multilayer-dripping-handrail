@@ -1,5 +1,5 @@
-#ifndef CONSTANTS_CPP
-#define CONSTANTS_CPP
+#ifndef CONSTANTS_HPP
+#define CONSTANTS_HPP
 
 namespace Constants {
     namespace mpi {

@@ -5,15 +5,14 @@
 #include "argparse-cpp/Argument.h"
 #include "argparse-cpp/ArgumentParser.h"
 
-#include "functions.cpp"
+#include "Functions.hpp"
 namespace fn = Functions;
 
-#include "constants.cpp"
+#include "Constants.hpp"
 namespace cs = Constants;
 
-#include "Simulation.cpp"
+#include "Simulation.hpp"
 #include "Radiation.cpp"
-
 
 // simulation task
 void sim(int rank, int n_workers, ArgumentParser* p) {

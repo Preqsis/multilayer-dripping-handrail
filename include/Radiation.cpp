@@ -11,10 +11,10 @@
 #include <highfive/H5File.hpp>
 namespace H5 = HighFive;
 
-#include "functions.cpp"
+#include "Functions.hpp"
 namespace fn = Functions;
 
-#include "constants.cpp"
+#include "Constants.hpp"
 namespace cs = Constants;
 
 namespace Radiation {
