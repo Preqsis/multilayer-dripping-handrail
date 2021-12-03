@@ -19,3 +19,7 @@ $(BIN)/$(EXECUTABLE): $(SRC)/*.cpp
 	@echo "Building..."
 	@mkdir -p $(BIN)
 	$(CXX) $(CXX_FLAGS) $(INCLUDE) $(LIB) $^ -o $@ $(LIB_FLAGS)
+
+clean:
+	@echo "Clearing..."
+	-rm $(BIN)/*
