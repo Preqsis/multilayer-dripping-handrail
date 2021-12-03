@@ -1,9 +1,8 @@
-#ifndef RADIATION_CPP
-#define RADIATION_CPP
-
 #include <iostream>
 #include <mpi.h>
 #include <math.h>
+
+#include "argparse-cpp/ArgumentParser.h"
 
 #include <highfive/H5Attribute.hpp>
 #include <highfive/H5DataSet.hpp>
@@ -17,19 +16,19 @@ namespace fn = Functions;
 #include "Constants.hpp"
 namespace cs = Constants;
 
-namespace Radiation {
+#include "Radiation.hpp"
 
 typedef std::vector<std::string> stype;
 typedef std::vector<stype> jtype;
 
-void terminate(std::vector<size_t> dim, int n_workers) {
+void Radiation::terminate(std::vector<size_t> dim, int n_workers) {
     double*** data = fn::alloc_3D_double(dim);
     for (int slave = 1; slave <= n_workers; slave++) {
         MPI_Send(&data[0][0][0], dim[0]*dim[1]*dim[2], MPI_DOUBLE, slave, cs::mpi::STOP, MPI_COMM_WORLD); 
     }
 }
 
-void slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, ArgumentParser* p) {
+void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, ArgumentParser* p) {
     /** MPI status flag **/
     MPI_Status status;
 
@@ -100,7 +99,7 @@ void slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, ArgumentP
     }
 }
 
-void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_workers, ArgumentParser* p) {
+void Radiation::master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_workers, ArgumentParser* p) {
     // MPI status flag holder
     MPI_Status status;
 
@@ -178,8 +177,3 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
         std::cout << std::endl << "Done ..." << std::endl;
     }
 }
-
-}
-
-#endif
-

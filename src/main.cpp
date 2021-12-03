@@ -12,7 +12,7 @@ namespace fn = Functions;
 namespace cs = Constants;
 
 #include "Simulation.hpp"
-#include "Radiation.cpp"
+#include "Radiation.hpp"
 
 // simulation task
 void sim(int rank, int n_workers, ArgumentParser* p) {
