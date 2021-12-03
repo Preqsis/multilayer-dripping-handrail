@@ -31,9 +31,7 @@ bool writable(bool wf, bool wl, uint s, uint sf, uint sl) {
 void grid_init(double*** data, std::vector<size_t> dim, ArgumentParser* p) {
     double r_in     = p->d("r_in");
     double r_out    = p->d("r_out");
-    
     double T_in     = std::pow((3.0 * cs::G * p->d("m_primary") * cs::m_sun * 1e17 / (8.0 * M_PI * cs::k * std::pow(r_in, 3.0))), 0.25);
-
     for (uint i=0; i< dim[0]; i++) { // rings
         for (uint j=0; j<dim[1]; j++){ // cells
             data[i][j][0]   = i; // ring coordinate
@@ -53,7 +51,7 @@ void grid_init(double*** data, std::vector<size_t> dim, ArgumentParser* p) {
 }
 
 // Function for "sim" MPI slave processes
-void slave(std::vector<size_t> dim) {
+void slave(std::vector<size_t> dim, ArgumentParser* p) {
     /** MPI status flag **/
     MPI_Status status;
 
@@ -148,6 +146,7 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
     if (p->isSet("mass_file") && p->isSet("mass_dkey")) { // sim start of external data
         H5::File* mass_infile = new H5::File(p->s("mass_file"), H5::File::ReadOnly);
         mass_infile->getDataSet(p->s("mass_dkey")).read((double***) grid[0][0]);
+        delete mass_infile;
     } else { // sim starts by setting parameters
         grid_init(grid, dim, p);
     }
@@ -179,13 +178,16 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
 
     // Distributor object
     // handles mass redistribution
-    Distributor* dist = new Distributor(grid, dim);
-    if (p->isSet("blob_file"))
-        dist->setBlobScheduler(new BlobScheduler(grid, dim, p->s("blob_file")));
-    dist->setRotationProfile(profile);
+    Distributor* dst;
+    if (p->isSet("blob_file")) 
+        dst = new Distributor(grid, dim, p->d("q"), new BlobScheduler(grid, dim, p->s("blob_file")));
+    else 
+        dst = new Distributor(grid, dim, p->d("q"));
+    dst->setRotationProfile(profile);
 
     // Communication data 'matrix' allocation
-    double** data = fn::alloc_2D_double(comm_dim);
+    double** data   = fn::alloc_2D_double(comm_dim);
+    size_t len_data = comm_dim[0] * comm_dim[1];
 
     // Compute all simulation steps
     uint i, j, k, c;
@@ -208,12 +210,12 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
                 i = (i < dim[0]-1) ? i + 1 : 0;
                 j = (j < dim[1]-1) ? j + 1 : 0;
             }
-            MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, COMPUTE, MPI_COMM_WORLD); // send data to slave
+            MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, COMPUTE, MPI_COMM_WORLD); // send data to slave
         }
 
         // Recieve and sort data back to grid
         for (slave = 1; slave <= n_workers; slave++) {
-            MPI_Recv(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recv. data
+            MPI_Recv(&data[0][0], len_data, MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status); // recv. data
 
             for (c = 0; c < comm_dim[0]; c++) { // back to grid
                 if (data[c][comm_dim[1]-1] == 0.0) {continue;} // compute == 1.0 only
@@ -228,7 +230,7 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
         }
         
         // Run distribution handler on grid
-        dist->run(s);
+        dst->run(s);
 
         // write mass
         if (writable(wf, wl, s, sf, sl)) {
@@ -245,8 +247,12 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
 
     // Stop all workers (slave) by sending STOP flag
     for (slave = 1; slave <= n_workers; slave++) {
-        MPI_Send(&data[0][0], comm_dim[0]*comm_dim[1], MPI_DOUBLE, slave, STOP, MPI_COMM_WORLD); 
+        MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, STOP, MPI_COMM_WORLD); 
     }
+
+    // cleanup
+    delete mass_file;
+    delete dst;
 
     // info msg.
     if (v) {

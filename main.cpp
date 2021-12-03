@@ -1,5 +1,6 @@
 #include <iostream>
 #include <mpi.h>
+#include <math.h>
 
 #include "argparse-cpp/Argument.h"
 #include "argparse-cpp/ArgumentParser.h"
@@ -16,17 +17,14 @@ namespace cs = Constants;
 // simulation task
 void sim(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions 
-    size_t n_jobs                   = p->i("idim") * p->i("jdim"); // number of jobs (cells)
-    std::vector<size_t> comm_dim    = {n_jobs / n_workers, 13};
-    while (comm_dim[0] * n_workers < n_jobs) { // int. rounding correction
-        comm_dim[0]++;
-    }
+    size_t n_jobs               = p->i("idim") * p->i("jdim"); // number of jobs (cells)
+    std::vector<size_t> cdim    = {(size_t)std::ceil((double)n_jobs / (double)n_workers), 13};
     
-    // Process specific task
+    // Process specific call
     if (rank == MASTER) {
-        Simulation::master(comm_dim, n_workers, p);
+        Simulation::master(cdim, n_workers, p);
     } else {
-        Simulation::slave(comm_dim);
+        Simulation::slave(cdim, p);
     }
 }
 
@@ -36,12 +34,17 @@ void rad(int rank, int n_workers, ArgumentParser* p) {
     std::vector<size_t> dim_mass    = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
     std::vector<size_t> dim_spec    = {dim_mass[0], dim_mass[1], (size_t)((p->d("lam_high") - p->d("lam_low")) / p->d("lam_step") + 1), 2};
 
-    // Process specific task
+    // Process specific call
     if (rank == MASTER) {
         Radiation::master(dim_mass, dim_spec, n_workers, p);
     } else {
         Radiation::slave(dim_mass, dim_spec, p);
     }
+}
+
+// observation task
+void obs(int rank, int n_workers, ArgumentParser* p) {
+
 }
 
 int main(int argc, char **argv) {
@@ -55,10 +58,11 @@ int main(int argc, char **argv) {
     // create argParser
     ArgumentParser* p = new ArgumentParser();
 
-    // 
+    // taks selection and verbosity 
     p->addArgument(new Argument<bool>("v", false));     // verbosity
     p->addArgument(new Argument<bool>("sim", false));   // run mass distribution sim
     p->addArgument(new Argument<bool>("rad", false));   // run radiation output computation
+    p->addArgument(new Argument<bool>("obs", false));   // run observation and filtering
 
     // Steps (number of steps, range, etc.)
     p->addArgument( new Argument<int>("step_n", 5e5));  // number of simulation steps
@@ -75,9 +79,6 @@ int main(int argc, char **argv) {
     jdim->setRequired(true);
     p->addArgument(jdim);
 
-    // Task selection
-    //p->addArgument( new Argument<std::string>("task", "sim"));  // select specific task (sim, rad, ...)
-
     // Input / output defs
     Argument<std::string>* outdir = new Argument<std::string>("outdir");        // data output directory
     outdir->setRequired(true);
@@ -93,6 +94,10 @@ int main(int argc, char **argv) {
     p->addArgument( new Argument<double>("r_in", 5e8));
     p->addArgument( new Argument<double>("r_out", 50.0 * 5e8));
 
+    // inner / outer mass influx
+    p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
+    p->addArgument(new Argument<double>("q", 0.5));         // local model mass influx
+
     // Radiation wavelength specification (range, step)
     p->addArgument( new Argument<double>("lam_low", 1e-5));
     p->addArgument( new Argument<double>("lam_high", 9e-5));
@@ -106,20 +111,19 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    /*
-    // task specific call
-    if (p->s("task") == "sim") {
-        sim(rank, n_workers, p);
-    } else if (p->s("task") == "rad") {
-        rad(rank, n_workers, p);
-    }*/
-
+    // Mass distribution
     if (p->b("sim")) {
         sim(rank, n_workers, p);
     }
 
+    // Radiative output
     if (p->b("rad")) {
         rad(rank, n_workers, p);
+    }
+
+    // 'Observation' and filtering
+    if (p->b("obs")) {
+        obs(rank, n_workers, p);
     }
     
     // terminate mpi execution env

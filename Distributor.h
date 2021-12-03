@@ -6,15 +6,13 @@
 
 class Distributor {
 private:
-    double _dx;
-    double _q;
-    double _zc;
+    double _q   = 0.5;  // default influx
+    double _zc  = 5.5;  // default critical z position
 
     double*** _grid;
-    double** _drain;
 
-    std::vector<size_t> _dim;          // comms dimensions
-    std::vector<size_t> _drain_dim;          // grid dimensions
+    std::vector<size_t> _dim;   // comms dimensions
+
     std::vector<double> _rProfile;      // rotation profile
     std::vector<double> _tProfile;      // temperature profile
 
@@ -24,8 +22,19 @@ public:
     Distributor(double*** grid, std::vector<size_t> dim) {
         _grid   = grid;
         _dim    = dim;
-        _zc     = 5.5;
-        _q      = 0.5;
+    }
+
+    Distributor(double*** grid, std::vector<size_t> dim, double q) : Distributor(grid, dim) {
+        setInflux(q);
+    }
+
+    Distributor(double*** grid, std::vector<size_t> dim, double q, BlobScheduler* scheduler) : Distributor(grid, dim, q) {
+        setBlobScheduler(scheduler);
+    }
+
+    ~Distributor() {
+        if (_hasScheduler)
+            delete _scheduler;
     }
 
     void setBlobScheduler(BlobScheduler* scheduler) {
@@ -41,6 +50,10 @@ public:
     void setTemperatureProfile(std::vector<double> profile) {
         _tProfile.clear();
         _tProfile = profile;
+    }
+
+    void setInflux(double q) {
+        _q = q;
     }
 
     double getRandW() {
@@ -95,7 +108,6 @@ public:
                         _grid[i][j][9] = 0.0; 
                         continue;
                     }
-
 
                     // urceni vnitrnich prilehajicih bunek
                     j_in        = (double)j + dp;

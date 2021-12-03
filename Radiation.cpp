@@ -129,7 +129,6 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
     // Comms data allocation
     double*** data_mass     = fn::alloc_3D_double(dim_mass);
     double**** data_spec    = fn::alloc_4D_double(dim_spec);
-    
 
     while (true) {
         // out
@@ -170,6 +169,9 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
     
     // end slaves
     terminate(dim_mass, n_workers);
+
+    delete mass_file;
+    delete spec_file;
 
     // info msg.
     if (v) {
