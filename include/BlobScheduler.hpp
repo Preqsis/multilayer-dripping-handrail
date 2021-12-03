@@ -1,14 +1,17 @@
-#ifndef BLOBSCHEDULER_H
-#define BLOBSCHEDULER_H
+#ifndef BLOBSCHEDULER_HPP
+#define BLOBSCHEDULER_HPP
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
-
-#include "BlobData.h"
+#include <map>
+#include <vector>
+#include <math.h>
 
 #include "rapidjson/document.h"
 namespace json = rapidjson;
+
+#include "BlobData.h"
 
 typedef std::vector<BlobData*> btype;
 typedef std::map<uint, btype> stype;
@@ -18,10 +21,14 @@ private:
     stype                   _schedule;
     double***               _grid;
     std::vector<size_t>     _dim;
-    bool                    _hasSchedule = false;
+    bool                    _hasSchedule;
 public:
-    BlobScheduler(double*** grid) {
-        setGrid(grid);
+    BlobScheduler() {
+        _hasSchedule = false;
+    }
+
+    BlobScheduler(double*** grid) : BlobScheduler() {
+        this->setGrid(grid);
     }
 
     BlobScheduler(double*** grid, std::vector<size_t> dim) : BlobScheduler(grid) {
@@ -29,7 +36,7 @@ public:
     }
 
     BlobScheduler(double*** grid, std::vector<size_t> dim, std::string jsonSchedule) : BlobScheduler(grid, dim) {
-        setSchedule(jsonSchedule);
+        this->setSchedule(jsonSchedule);
         _hasSchedule = true;
     }
 
@@ -68,7 +75,7 @@ public:
         stype::iterator it = _schedule.find(step);
         if (it != _schedule.end()) {
             for (auto blob : it->second) {
-                addBlob(blob);
+                this->addBlob(blob);
             }
         }
     }

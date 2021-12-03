@@ -14,6 +14,7 @@ namespace cs = Constants;
 #include "Simulation.cpp"
 #include "Radiation.cpp"
 
+
 // simulation task
 void sim(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions 
