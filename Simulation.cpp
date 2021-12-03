@@ -76,7 +76,7 @@ void slave(std::vector<size_t> dim, ArgumentParser* p) {
         MPI_Recv(&data[0][0], len_data, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
         /** If STOP --> end slave computation */
-        if (status.MPI_TAG == STOP) {
+        if (status.MPI_TAG == cs::mpi::STOP) {
             free(model);
             break;
         }
@@ -109,7 +109,7 @@ void slave(std::vector<size_t> dim, ArgumentParser* p) {
         }
 
         /** Send results to master */
-        MPI_Send(&data[0][0], len_data, MPI_DOUBLE, 0, COMPUTE, MPI_COMM_WORLD);
+        MPI_Send(&data[0][0], len_data, MPI_DOUBLE, 0, cs::mpi::COMPUTE, MPI_COMM_WORLD);
     }
 }
 
@@ -139,7 +139,7 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
 
     // "real" sim dimensions
     // {rings, cells, cell_data}
-    std::vector<size_t> dim = {(luint)p->i("idim"), (luint)p->i("jdim"), comm_dim[1]};
+    std::vector<size_t> dim = {(size_t)p->i("idim"), (size_t)p->i("jdim"), comm_dim[1]};
 
     // grid allocation
     double*** grid = fn::alloc_3D_double(dim);
@@ -210,7 +210,7 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
                 i = (i < dim[0]-1) ? i + 1 : 0;
                 j = (j < dim[1]-1) ? j + 1 : 0;
             }
-            MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, COMPUTE, MPI_COMM_WORLD); // send data to slave
+            MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, cs::mpi::COMPUTE, MPI_COMM_WORLD); // send data to slave
         }
 
         // Recieve and sort data back to grid
@@ -247,7 +247,7 @@ void master(std::vector<size_t> comm_dim, int n_workers, ArgumentParser* p) {
 
     // Stop all workers (slave) by sending STOP flag
     for (slave = 1; slave <= n_workers; slave++) {
-        MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, STOP, MPI_COMM_WORLD); 
+        MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, cs::mpi::STOP, MPI_COMM_WORLD); 
     }
 
     // cleanup

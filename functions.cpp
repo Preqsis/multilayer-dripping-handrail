@@ -13,14 +13,7 @@
 namespace H5 = HighFive;
 
 typedef boost::array<double, 2> state_type;
-typedef long unsigned int luint;
 typedef unsigned int uint;
-
-// Compute flags
-const int MASTER    = 0;
-const int COMPUTE   = 1;
-const int STOP      = 2;
-const int SKIP      = 3;
 
 namespace Functions {
 

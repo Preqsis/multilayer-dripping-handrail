@@ -21,7 +21,7 @@ void sim(int rank, int n_workers, ArgumentParser* p) {
     std::vector<size_t> cdim    = {(size_t)std::ceil((double)n_jobs / (double)n_workers), 13};
     
     // Process specific call
-    if (rank == MASTER) {
+    if (rank == cs::mpi::MASTER) {
         Simulation::master(cdim, n_workers, p);
     } else {
         Simulation::slave(cdim, p);
@@ -35,7 +35,7 @@ void rad(int rank, int n_workers, ArgumentParser* p) {
     std::vector<size_t> dim_spec    = {dim_mass[0], dim_mass[1], (size_t)((p->d("lam_high") - p->d("lam_low")) / p->d("lam_step") + 1), 2};
 
     // Process specific call
-    if (rank == MASTER) {
+    if (rank == cs::mpi::MASTER) {
         Radiation::master(dim_mass, dim_spec, n_workers, p);
     } else {
         Radiation::slave(dim_mass, dim_spec, p);
@@ -43,9 +43,7 @@ void rad(int rank, int n_workers, ArgumentParser* p) {
 }
 
 // observation task
-void obs(int rank, int n_workers, ArgumentParser* p) {
-
-}
+void obs(int rank, int n_workers, ArgumentParser* p) {}
 
 int main(int argc, char **argv) {
     // MPI init
@@ -105,7 +103,7 @@ int main(int argc, char **argv) {
 
     // Command line args. parser
     if (!p->parse(argc, argv)) {
-        if (rank == MASTER) {
+        if (rank == cs::mpi::MASTER) {
             std::cout << *p; // prints out help msg.
         }
         return 0;

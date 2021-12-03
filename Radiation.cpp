@@ -25,7 +25,7 @@ typedef std::vector<stype> jtype;
 void terminate(std::vector<size_t> dim, int n_workers) {
     double*** data = fn::alloc_3D_double(dim);
     for (int slave = 1; slave <= n_workers; slave++) {
-        MPI_Send(&data[0][0][0], dim[0]*dim[1]*dim[2], MPI_DOUBLE, slave, STOP, MPI_COMM_WORLD); 
+        MPI_Send(&data[0][0][0], dim[0]*dim[1]*dim[2], MPI_DOUBLE, slave, cs::mpi::STOP, MPI_COMM_WORLD); 
     }
 }
 
@@ -65,9 +65,9 @@ void slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, ArgumentP
     while (true) {
         MPI_Recv(&data_mass[0][0][0], len_mass, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-        if (status.MPI_TAG == STOP) {break;}
+        if (status.MPI_TAG == cs::mpi::STOP) {break;}
 
-        if (status.MPI_TAG == COMPUTE) {
+        if (status.MPI_TAG == cs::mpi::COMPUTE) {
             for (size_t i = 0; i < dim_spec[0]; i++) {          // pres vsechny prstence
                 for (size_t j = 0; j < dim_spec[1]; j++) {      // pres vsechny bunky v prstenci
                     for (size_t k = 0; k < dim_spec[2]; k++) {  // pres rozsah vl. delek
@@ -141,7 +141,7 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
                 mass_file->getDataSet(dkey).read((double***) data_mass[0][0]);
             }
 
-            MPI_Send(&data_mass[0][0][0], len_mass, MPI_DOUBLE, slave, (skip) ? SKIP : COMPUTE, MPI_COMM_WORLD); 
+            MPI_Send(&data_mass[0][0][0], len_mass, MPI_DOUBLE, slave, (skip) ? cs::mpi::SKIP : cs::mpi::COMPUTE, MPI_COMM_WORLD); 
         }
 
         // in
@@ -151,7 +151,7 @@ void master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, int n_wo
 
             MPI_Recv(&data_spec[0][0][0][0], len_spec, MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-            if (status.MPI_TAG == COMPUTE) {
+            if (status.MPI_TAG == cs::mpi::COMPUTE) {
                 fn::writeDataSet(spec_file, data_spec, dim_spec, dkey); // initial state save
             }
         }

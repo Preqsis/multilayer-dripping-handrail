@@ -2,6 +2,16 @@
 #define CONSTANTS_CPP
 
 namespace Constants {
+    namespace mpi {
+        // rank 
+        const int MASTER    = 0;
+
+        // compute tags
+        const int COMPUTE   = 1;
+        const int STOP      = 2;
+        const int SKIP      = 3;
+    }
+
     //const double h      = 6.62607004e-34; // m^2 * kg * s^-1
     const double h      = 6.62607004e-27; // cgs
     
