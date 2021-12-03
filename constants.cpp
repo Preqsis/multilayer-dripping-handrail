@@ -21,7 +21,7 @@ namespace Constants {
     //const double c      = 2.99792458e8; // m * s^-1
     const double c      = 2.99792458e10; // cgs
     
-    //const double m_sun  = 1.9891e30;
+    //const double m_sun  = 1.9891e30; // kg
     const double m_sun  = 1.9891e33; // g
     
     //const double G      = 6.6743e-11;
