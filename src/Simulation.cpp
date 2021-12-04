@@ -15,8 +15,6 @@ namespace H5 = HighFive;
 
 #include "MSMM.h"
 
-#include "BlobScheduler.hpp"
-
 #include "Distributor.hpp"
 
 #include "Functions.hpp"
@@ -185,7 +183,7 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     // handles mass redistribution
     Distributor* dst;
     if (p->isSet("blob_file")) 
-        dst = new Distributor(grid, dim, p->d("q"), new BlobScheduler(grid, dim, p->s("blob_file")));
+        dst = new Distributor(grid, dim, p->d("q"), p->s("blob_file"));
     else 
         dst = new Distributor(grid, dim, p->d("q"));
     dst->setRotationProfile(profile);

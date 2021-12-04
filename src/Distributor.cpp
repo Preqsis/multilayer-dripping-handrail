@@ -17,18 +17,14 @@ Distributor::Distributor(double*** grid, std::vector<size_t> dim, double q) :  D
     setInflux(q);
 }
 
-Distributor::Distributor(double*** grid, std::vector<size_t> dim, double q, BlobScheduler* scheduler) : Distributor(grid, dim, q) {
-    setBlobScheduler(scheduler);
+Distributor::Distributor(double*** grid, std::vector<size_t> dim, double q, std::string schedule_file) : Distributor(grid, dim, q) {
+    _scheduler      = new BlobScheduler(_grid, _dim, schedule_file);
+    _hasScheduler   = true;
 }
 
 Distributor::~Distributor() {
     if (_hasScheduler)
         delete _scheduler;
-}
-
-void Distributor::setBlobScheduler(BlobScheduler* scheduler) {
-    _scheduler      = scheduler;
-    _hasScheduler   = true;
 }
 
 void Distributor::setRotationProfile(std::vector<double> profile) {

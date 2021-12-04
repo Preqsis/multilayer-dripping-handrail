@@ -20,11 +20,9 @@ public:
 
     Distributor(double*** grid, std::vector<size_t> dim, double q);
 
-    Distributor(double*** grid, std::vector<size_t> dim, double q, BlobScheduler* scheduler);
+    Distributor(double*** grid, std::vector<size_t> dim, double q, std::string schedule_file);
 
     ~Distributor();
-
-    void setBlobScheduler(BlobScheduler* scheduler);
 
     void setRotationProfile(std::vector<double> profile);
 

@@ -35,13 +35,13 @@ public:
         _dim = dim;
     }
 
-    BlobScheduler(double*** grid, std::vector<size_t> dim, std::string jsonSchedule) : BlobScheduler(grid, dim) {
-        this->setSchedule(jsonSchedule);
+    BlobScheduler(double*** grid, std::vector<size_t> dim, std::string schedule_file) : BlobScheduler(grid, dim) {
+        this->setSchedule(schedule_file);
         _hasSchedule = true;
     }
 
-    void setSchedule(std::string jsonSchedule) {
-        std::ifstream infile(jsonSchedule);
+    void setSchedule(std::string schedule_file) {
+        std::ifstream infile(schedule_file);
         std::string content((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
         json::Document d;
         d.Parse(content.c_str());
