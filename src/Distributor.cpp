@@ -1,11 +1,20 @@
 #include <random>
-#include "BlobScheduler.hpp"
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <map>
+#include <vector>
+#include <math.h>
+
+#include "rapidjson/document.h"
+namespace json = rapidjson;
+
 #include "Distributor.hpp"
 
 Distributor::Distributor() {
-    _q              = 0.5;
-    _zc             = 5.5;
-    _hasScheduler   = false;
+    _q          = 0.5;
+    _zc         = 5.5;
+    _hasBlobs   = false;
 }
 
 Distributor::Distributor(double*** grid, std::vector<size_t> dim) : Distributor() {
@@ -17,14 +26,13 @@ Distributor::Distributor(double*** grid, std::vector<size_t> dim, double q) :  D
     setInflux(q);
 }
 
-Distributor::Distributor(double*** grid, std::vector<size_t> dim, double q, std::string schedule_file) : Distributor(grid, dim, q) {
-    _scheduler      = new BlobScheduler(_grid, _dim, schedule_file);
-    _hasScheduler   = true;
+Distributor::Distributor(double*** grid, std::vector<size_t> dim, double q, std::string blob_file) : Distributor(grid, dim, q) {
+    setBlobSchedule(blob_file);
+    _hasBlobs   = true;
 }
 
 Distributor::~Distributor() {
-    if (_hasScheduler)
-        delete _scheduler;
+
 }
 
 void Distributor::setRotationProfile(std::vector<double> profile) {
@@ -35,6 +43,50 @@ void Distributor::setRotationProfile(std::vector<double> profile) {
 void Distributor::setTemperatureProfile(std::vector<double> profile) {
     _tProfile.clear();
     _tProfile = profile;
+}
+
+void Distributor::setBlobSchedule(std::string blob_file) {
+    std::ifstream infile(blob_file);
+    std::string content((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
+    json::Document d;
+    d.Parse(content.c_str());
+    const json::Value& blobs = d["blobs"];
+    uint step;
+    BlobData* b;
+    for (json::Value::ConstValueIterator it0 = blobs.Begin(); it0 != blobs.End(); ++it0) {
+        step                        = (*it0)["step"].GetInt();
+        const json::Value& data     = (*it0)["data"].GetArray();
+        std::vector<BlobData*> tmp;
+        for (json::Value::ConstValueIterator it1 = data.Begin(); it1 != data.End(); ++it1) {
+            b = new BlobData();
+            b->i = (*it1)["i"].GetInt();
+            b->r = (*it1)["r"].GetInt();
+            b->a = (*it1)["a"].GetDouble();
+            b->m = (*it1)["m"].GetDouble();
+            tmp.push_back(b);
+        }
+        _blobSchedule[step] = tmp;
+    }
+}
+
+void Distributor::addBlob(BlobData* b) {
+    // kontrola podminek vsech bunek
+    uint ri, rc, i, j;
+    double lx, ly, l;
+    for (i = 0; i < _dim[0]; i++) {
+        for (j = 0; j < _dim[1]; j++) {
+            ri  = _dim[0] - i;
+            rc  = _dim[0] - b->i;
+            lx  = ri * cos(_grid[i][j][8]) - rc * cos(b->a);
+            ly  = ri * sin(_grid[i][j][8]) - rc * sin(b->a);
+            l   = sqrt(pow(lx, 2.0) + pow(ly, 2.0));
+            if (l > b->r) {
+                continue;
+            }
+            _grid[i][j][5] += (b->m / (0.8 * l));
+            _grid[i][j][6] += (b->m / (0.8 * l));
+        }
+    }
 }
 
 void Distributor::setInflux(double q) {
@@ -48,6 +100,14 @@ double Distributor::getRandW() {
     return dist(engine);
 }
 
+void Distributor::runBlobs(uint step) {
+    stype::iterator it = _blobSchedule.find(step);
+    if (it != _blobSchedule.end()) {
+        for (auto blob : it->second) {
+            this->addBlob(blob);
+        }
+    }
+}
 void Distributor::run (uint s) {
     double mb, w, dp, j_in, part_left, part_right;
     uint i, j, j_right, j_left, idx;
@@ -155,7 +215,7 @@ void Distributor::run (uint s) {
     }
 
     // blob?
-    if (_hasScheduler) {
-        _scheduler->run(s);
+    if (_hasBlobs) {
+        runBlobs(s);
     }
 }
