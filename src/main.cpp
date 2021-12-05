@@ -63,11 +63,11 @@ int main(int argc, char **argv) {
     p->addArgument(new Argument<bool>("obs", false));   // run observation and filtering
 
     // Steps (number of steps, range, etc.)
-    p->addArgument( new Argument<int>("step_n", 5e5));  // number of simulation steps
-    p->addArgument( new Argument<int>("step_first"));   // first step in range
-    p->addArgument( new Argument<int>("step_last"));    // last step in range
-    p->addArgument( new Argument<int>("step_wfirst"));  // first step to save
-    p->addArgument( new Argument<int>("step_wlast"));   // first step to save
+    p->addArgument(new Argument<int>("step_n", 5e5));  // number of simulation steps
+    p->addArgument(new Argument<int>("step_first"));   // first step in range
+    p->addArgument(new Argument<int>("step_last"));    // last step in range
+    p->addArgument(new Argument<int>("step_wfirst"));  // first step to save
+    p->addArgument(new Argument<int>("step_wlast"));   // first step to save
 
     // Disk dimensions
     Argument<int>* idim = new Argument<int>("idim");    // number of layers
@@ -84,22 +84,22 @@ int main(int argc, char **argv) {
     Argument<std::string>* mass_file = new Argument<std::string>("mass_file");  // input mass_file
     mass_file->setRequired(false);
     p->addArgument(mass_file);                                     
-    p->addArgument( new Argument<std::string>("mass_dkey"));                    // initial data key of input mass file
-    p->addArgument( new Argument<std::string>("blob_file"));                    // input blob json file
+    p->addArgument(new Argument<std::string>("mass_dkey"));                    // initial data key of input mass file
+    p->addArgument(new Argument<std::string>("blob_file"));                    // input blob json file
 
     // Simulated system parameters
-    p->addArgument( new Argument<double>("m_primary", 0.8));
-    p->addArgument( new Argument<double>("r_in", 5e8));
-    p->addArgument( new Argument<double>("r_out", 50.0 * 5e8));
+    p->addArgument(new Argument<double>("m_primary", 0.8));
+    p->addArgument(new Argument<double>("r_in", 5e8));
+    p->addArgument(new Argument<double>("r_out", 50.0 * 5e8));
 
     // inner / outer mass influx
     p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
     p->addArgument(new Argument<double>("q", 0.5));         // local model mass influx
 
     // Radiation wavelength specification (range, step)
-    p->addArgument( new Argument<double>("lam_low", 1e-5));
-    p->addArgument( new Argument<double>("lam_high", 9e-5));
-    p->addArgument( new Argument<double>("lam_step", 1e-7));
+    p->addArgument(new Argument<double>("lam_low", 1e-5));
+    p->addArgument(new Argument<double>("lam_high", 9e-5));
+    p->addArgument(new Argument<double>("lam_step", 1e-7));
 
     // Command line args. parser
     if (!p->parse(argc, argv)) {

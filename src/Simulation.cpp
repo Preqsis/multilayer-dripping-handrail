@@ -44,11 +44,12 @@ void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentPars
             data[i][j][4]   = 0.0; // v
             data[i][j][5]   = 0.0; // m
             data[i][j][6]   = 0.0; // dm
-            data[i][j][7]   = r_out - i * (r_out - r_in) / ((double) dim[0]);
+            data[i][j][7]   = r_out - i * (r_out - r_in) / ((double) dim[0]); // cell specific radius
             data[i][j][8]   = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
             data[i][j][9]   = 0.0; // drain
-            data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // teplota
-            data[i][j][11]  = 1.0; // compute flag (0.0 --> do not compute)
+            data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // temperature
+            data[i][j][11]  = std::pow(r_out, 2.0) / std::pow(((double)dim[0] - i - 1) * (r_out - r_in) / ((double)dim[0] - 1) , 2.0); // local 'g'
+            data[i][j][12]  = 1.0; // compute flag (0.0 --> do not compute)
         }
     }
 }
@@ -100,7 +101,8 @@ void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
             // parametry do modelu
             model->set_m(data[i][5]);
             model->set_dm(data[i][6] / dx); // pritok urceny vstupem, podeleno krokem aby davalo smysl pro rce.
-            model->set_g(data[i][7]);
+
+            model->set_g(data[i][11]); // local 'g'
 
             // krok
             stepper.do_step(*model, y, x, dx);
