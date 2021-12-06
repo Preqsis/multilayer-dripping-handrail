@@ -71,9 +71,12 @@ void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
     MSMM2* model = new MSMM2();
         
     // solver / stepper
-    //boost::numeric::odeint::runge_kutta4<state_type> stepper;
-    //boost::numeric::odeint::runge_kutta_dopri5<state_type> stepper;
     boost::numeric::odeint::runge_kutta_fehlberg78<state_type> stepper;
+    if (p->s("stepper") == "rk4") {
+        boost::numeric::odeint::runge_kutta4<state_type> stepper;
+    } else if (p->s("stepper") == "dopri5") {
+        boost::numeric::odeint::runge_kutta_dopri5<state_type> stepper;
+    }
 
     /** Recieve until STOP */
     while (true) {

@@ -108,7 +108,8 @@ void Distributor::runBlobs(uint step) {
         }
     }
 }
-void Distributor::run (uint s) {
+
+void Distributor::run(uint s) {
     double mb, w, dp, j_in, part_left, part_right;
     uint i, j, j_right, j_left, idx;
 

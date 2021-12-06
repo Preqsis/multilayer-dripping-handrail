@@ -101,6 +101,9 @@ int main(int argc, char **argv) {
     p->addArgument(new Argument<double>("lam_high", 9e-5));
     p->addArgument(new Argument<double>("lam_step", 1e-7));
 
+    // Simulation model ode stepper
+    p->addArgument(new Argument<std::string>("stepper", "fehlberg78"));
+
     // Command line args. parser
     if (!p->parse(argc, argv)) {
         if (rank == cs::mpi::MASTER) {
