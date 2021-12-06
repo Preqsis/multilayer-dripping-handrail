@@ -19,7 +19,7 @@ void sim(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions 
     size_t n_jobs               = p->i("idim") * p->i("jdim"); // number of jobs (cells)
     std::vector<size_t> cdim    = {(size_t)std::ceil((double)n_jobs / (double)n_workers), 13};
-    
+
     // Process specific call
     if (rank == cs::mpi::MASTER) {
         Simulation::master(cdim, n_workers, p);

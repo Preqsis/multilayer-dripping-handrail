@@ -48,7 +48,8 @@ void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentPars
             data[i][j][8]   = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
             data[i][j][9]   = 0.0; // drain
             data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // temperature
-            data[i][j][11]  = std::pow(r_out, 2.0) / std::pow(((double)dim[0] - i - 1) * (r_out - r_in) / ((double)dim[0] - 1) , 2.0); // local 'g'
+            //data[i][j][11]  = std::pow(r_out, 2.0) / std::pow(((double)dim[0] - i - 1) * (r_out - r_in) / ((double)dim[0] - 1) , 2.0); // local 'g'
+            data[i][j][11]  = 1.0; // local 'g'
             data[i][j][12]  = 1.0; // compute flag (0.0 --> do not compute)
         }
     }
@@ -198,13 +199,22 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     uint i, j, k, c;
     int slave;
     for (uint s = 1; s < steps; s++) {
+
+
+
         // Sort, mark (compute flag) and send jobs to specific slave processes
         i = 0;
         j = 0;
         for (slave = 1; slave <= n_workers; slave++) {
+            
+            
+
+
             for (c = 0; c < comm_dim[0]; c++) {
-                for (k = 0; k < comm_dim[1]; k++) {
-                    data[c][k] = grid[i][j][k];
+                if (i < dim[0]) {
+                    for (k = 0; k < comm_dim[1]; k++) {
+                        data[c][k] = grid[i][j][k];
+                    }
                 }
 
                 // compute flag
@@ -212,11 +222,26 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
 
                 // cell indexes
                 // rollover je z nejakeho duvodu rychlejsi ???
-                i = (i < dim[0]-1) ? i + 1 : 0;
+                //i = (i < dim[0]-1) ? i + 1 : 0;
                 j = (j < dim[1]-1) ? j + 1 : 0;
+                i = (j == 0) ? i + 1 : i;
             }
+
+
+
+
+
+
+
+
             MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, cs::mpi::COMPUTE, MPI_COMM_WORLD); // send data to slave
         }
+
+
+
+
+
+
 
         // Recieve and sort data back to grid
         for (slave = 1; slave <= n_workers; slave++) {
