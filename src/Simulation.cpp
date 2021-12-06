@@ -199,17 +199,10 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     uint i, j, k, c;
     int slave;
     for (uint s = 1; s < steps; s++) {
-
-
-
         // Sort, mark (compute flag) and send jobs to specific slave processes
         i = 0;
         j = 0;
         for (slave = 1; slave <= n_workers; slave++) {
-            
-            
-
-
             for (c = 0; c < comm_dim[0]; c++) {
                 if (i < dim[0]) {
                     for (k = 0; k < comm_dim[1]; k++) {
@@ -221,27 +214,11 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
                 data[c][comm_dim[1]-1] = (i < dim[0]) ? 1.0 : 0.0;
 
                 // cell indexes
-                // rollover je z nejakeho duvodu rychlejsi ???
-                //i = (i < dim[0]-1) ? i + 1 : 0;
                 j = (j < dim[1]-1) ? j + 1 : 0;
                 i = (j == 0) ? i + 1 : i;
             }
-
-
-
-
-
-
-
-
             MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, cs::mpi::COMPUTE, MPI_COMM_WORLD); // send data to slave
         }
-
-
-
-
-
-
 
         // Recieve and sort data back to grid
         for (slave = 1; slave <= n_workers; slave++) {
