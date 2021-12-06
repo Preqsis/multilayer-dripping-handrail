@@ -85,7 +85,6 @@ void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
 
         /** If STOP --> end slave computation */
         if (status.MPI_TAG == cs::mpi::STOP) {
-            free(model);
             break;
         }
 
@@ -111,7 +110,7 @@ void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
             // krok
             stepper.do_step(*model, y, x, dx);
 
-            // vysledky zpet do datau
+            // vysledky zpet do data
             data[i][2] += dx; // inkrementace casu
             data[i][3] = y[0]; // z
             data[i][4] = y[1]; // v
@@ -120,6 +119,9 @@ void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
         /** Send results to master */
         MPI_Send(&data[0][0], len_data, MPI_DOUBLE, 0, cs::mpi::COMPUTE, MPI_COMM_WORLD);
     }
+
+    // cleanup
+    delete model;
 }
 
 // Function for "sim" MPI master process

@@ -13,6 +13,7 @@ namespace cs = Constants;
 
 #include "Simulation.hpp"
 #include "Radiation.hpp"
+#include "Observation.hpp"
 
 // simulation task
 void sim(int rank, int n_workers, ArgumentParser* p) {
