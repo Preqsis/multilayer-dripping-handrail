@@ -1,10 +1,24 @@
-LIB_DIR=./lib
+CXX 			:= mpic++
+CXX_FLAGS 		:= -std=c++2a -Wall -Wextra
+BIN				:= bin
+SRC				:= src
 
-INC=$(LIB_DIR)/highfive /usr/include/hdf5/serial/ /usr/local/include/boost_1_76_0 $(LIB_DIR)
-INC_DIRS=$(foreach d, $(INC), -I$d)
+INC_DIRS		:= /usr/include/hdf5/serial include
+INCLUDE 		:= $(foreach d, $(INC_DIRS), -I$d)
 
-CFLGS=-c -Wall -pedantic -fopenmp
+LIB_DIRS		:= /usr/lib/x86_64-linux-gnu/hdf5/serial/lib lib
+LIB		 		:= $(foreach d, $(LIB_DIRS), -L$d)
+LIB_FLAGS		:= -lhdf5
 
-all:
-	mpic++ main.cpp -std=c++17 -L/usr/lib/x86_64-linux-gnu/hdf5/serial/lib -lhdf5 $(INC_DIRS) -o mldrun
+EXECUTABLE		:= mld
 
+all: $(BIN)/$(EXECUTABLE)
+
+$(BIN)/$(EXECUTABLE): $(SRC)/*.cpp
+	@echo "Building..."
+	@mkdir -p $(BIN)
+	$(CXX) $(CXX_FLAGS) $(INCLUDE) $(LIB) $^ -o $@ $(LIB_FLAGS)
+
+clean:
+	@echo "Clearing..."
+	-rm $(BIN)/*

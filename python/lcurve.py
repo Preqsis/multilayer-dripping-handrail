@@ -52,8 +52,11 @@ def main() -> None:
 
 
     T_in        = (3. * G * M_primary * dM / (8. * np.pi * r_in**3. * sigma))**(1./4.)
+
     T_ef        = T_in * (r_in / r)**(3./4.) * (1. - np.sqrt(r_in / r))**(1./4.)
+
     T_ef_sim    = T_in * (r_in / r_sim)**(3./4.) * (1. - np.sqrt(r_in / r_sim))
+
     T_ef_sim    = T_ef_sim[:-1]
 
 

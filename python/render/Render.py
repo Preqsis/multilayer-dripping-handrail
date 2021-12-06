@@ -30,24 +30,24 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
     r = r_out
     for i in range(idim):
         for j in range(jdim):
-            k = i * jdim + j
+            #k = i * jdim + j
 
-            m, azm = data[k][5], data[k][9] % (2. * np.pi)
+            m, azm = data[i][j][5], data[i][j][8] % (2. * np.pi)
 
             rgba = colormap(m / mlimit)
 
-            c.arc(0.5, 0.5, r, azm, azm+dphi)
+            c.arc(0.495, 0.5, r, azm, azm+dphi)
             c.set_source_rgb(rgba[0], rgba[1], rgba[2])  # Solid color
             c.stroke()
 
         r -= dr
 
     c.set_line_width(dr * 0.2)
-    c.arc(0.5, 0.5, r_out + 0.6 * dr, 0., 2. * np.pi)
+    c.arc(0.495, 0.5, r_out + 0.6 * dr, 0., 2. * np.pi)
     c.set_source_rgb(255, 255, 255)
     c.stroke()
 
-    c.arc(0.5, 0.5, r_in + 0.4 * dr, 0., 2. * np.pi)
+    c.arc(0.495, 0.5, r_in + 0.4 * dr, 0., 2. * np.pi)
     c.set_source_rgb(255, 255, 255)
     c.stroke()
 
