@@ -1,6 +1,10 @@
 #ifndef SIMULATION_HPP
 #define SIMULATION_HPP
 
+#include <vector>
+
+class ArgumentParser;
+
 namespace Simulation {
 
 // dataset write check function
@@ -8,6 +12,9 @@ bool writable(bool wf, bool wl, uint s, uint sf, uint sl);
 
 // 'Empty' simulation grid initalization
 void grid_init(double*** data, std::vector<size_t> dim, ArgumentParser* p);
+
+
+void terminate(std::vector<size_t> dim, int n_workers);
 
 // Function for "sim" MPI slave processes
 void slave(std::vector<size_t> dim, ArgumentParser* p);

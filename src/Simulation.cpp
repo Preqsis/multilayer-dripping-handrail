@@ -55,6 +55,13 @@ void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentPars
     }
 }
 
+void Simulation::terminate(std::vector<size_t> dim, int n_workers) {
+    double** data = fn::alloc_2D_double(dim);
+    for (int slave = 1; slave <= n_workers; slave++) {
+        MPI_Send(&data[0][0], dim[0]*dim[1], MPI_DOUBLE, slave, cs::mpi::STOP, MPI_COMM_WORLD); 
+    }
+}
+
 // Function for "sim" MPI slave processes
 void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
     /** MPI status flag **/
@@ -257,10 +264,8 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
         }
     }
 
-    // Stop all workers (slave) by sending STOP flag
-    for (slave = 1; slave <= n_workers; slave++) {
-        MPI_Send(&data[0][0], len_data, MPI_DOUBLE, slave, cs::mpi::STOP, MPI_COMM_WORLD); 
-    }
+    // Stop all slave processes
+    terminate(comm_dim, n_workers);
 
     // cleanup
     delete mass_file;
