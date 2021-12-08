@@ -12,20 +12,20 @@ namespace Constants {
         const int SKIP      = 3;
     }
 
-    //const double h      = 6.62607004e-34; // m^2 * kg * s^-1
-    const double h      = 6.62607004e-27; // cgs
+    // Planck's const
+    const double h      = 6.6260755e-27; // cm^2 * g * s^-1
     
-    //const double k      = 5.670374419e-8; // W * m^-2 * K^-34
-    const double k      = 5.670374419e-5; // cgs
+    // Boltzmann's constant
+    const double k      = 1.380658e-16; // erg * K^-1
 
-    //const double c      = 2.99792458e8; // m * s^-1
-    const double c      = 2.99792458e10; // cgs
+    // Speed of light
+    const double c      = 2.99792458e10; // cm * s^-1
     
-    //const double m_sun  = 1.9891e30; // kg
+    // Sun mass
     const double m_sun  = 1.9891e33; // g
     
-    //const double G      = 6.6743e-11;
-    const double G      = 6.67259e-12; // cgs
+    // Gravitational constant
+    const double G      = 6.67259e-8; // cm^3 * g^-1 * s^-2
 } 
 
 #endif

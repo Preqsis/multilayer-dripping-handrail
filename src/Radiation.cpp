@@ -28,6 +28,12 @@ void Radiation::terminate(std::vector<size_t> dim, int n_workers) {
     }
 }
 
+double Radiation::planck(double wl, double T) {
+    double a = 2.0 * cs::h * std::pow(cs::c, 2.0);
+    double b = cs::h * cs::c / (wl * cs::k * T);
+    return a / (std::pow(wl, 5.0) * (std::exp(b) - 1.0 ));
+}
+
 void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, ArgumentParser* p) {
     /** MPI status flag **/
     MPI_Status status;
@@ -57,7 +63,7 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
         r[i] = p->d("r_out") - i * dR;
     }
 
-    double E, T, dL, B, S, L, frq, drn;
+    double E, T, dL, B, S, L, wl, frq, drn;
     double A = cs::G * p->d("m_primary") * cs::m_sun; // Bulhar --> G * Mp = 1.0 
     double Q = 1e17;
 
@@ -71,20 +77,26 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
                 for (size_t j = 0; j < dim_spec[1]; j++) {      // pres vsechny bunky v prstenci
                     for (size_t k = 0; k < dim_spec[2]; k++) {  // pres rozsah vl. delek
                         
-                        drn = Q * data_mass[i][j][9]; // drain 
+                        drn = Q * data_mass[i][j][9]; // drain
+
+                        //if (drn > 0.0) {
+                        //std::cout << drn << ", " << dR << std::endl;
+                        //}
 
                         E   = 0.5 * A * dR * drn / (r[i] * r[i+1]);
 
                         T   = data_mass[i][j][10];
 
-                        frq = cs::c / data_spec[i][j][k][0];
+                        wl  = data_spec[i][j][k][0];
+                        frq = cs::c / wl;
 
-                        dL  = 4.9e-11 * (E / T) * std::exp(-1.0 * cs::h * frq/ (cs::k * T));
+                        dL  = 4.9e-11 * (E / 1e5) * std::exp(-1.0 * cs::h * frq/ (cs::k * 1e5));
 
-                        B   = 2.0 * cs::h * std::pow(frq, 3.0) / std::pow(cs::c, 2.0) / std::exp(cs::h * frq / (cs::k * T) - 1.0);
+                        B   = planck(wl, T);
                         
                         S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_mass[1];
 
+                        //L   = 2.0 * S * B + dL;
                         L   = 2.0 * S * B + dL;
 
                         data_spec[i][j][k][1] = L;
