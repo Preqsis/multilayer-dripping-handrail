@@ -83,7 +83,7 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
 
                         B   = 2.0 * cs::h * std::pow(frq, 3.0) / std::pow(cs::c, 2.0) / std::exp(cs::h * frq / (cs::k * T) - 1.0);
                         
-                        S   = M_PI * (pow(r[1], 2.0) - pow(r[i+1], 2.0)) / dim_mass[1];
+                        S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_mass[1];
 
                         L   = 2.0 * S * B + dL;
 
