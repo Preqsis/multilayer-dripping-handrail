@@ -68,7 +68,7 @@ void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
     MPI_Status status;
 
     // dx --> DORESIT!!!
-    double dx = 0.01; 
+    double dx = 0.1; 
 
     /** Comms matrix allocation */
     double** data   = fn::alloc_2D_double(dim);

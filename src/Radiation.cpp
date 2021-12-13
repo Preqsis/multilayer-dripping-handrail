@@ -47,12 +47,12 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
     double**** data_spec    = fn::alloc_4D_double(dim_spec);
 
     // Spectrum range init
-    double lam_low  = p->d("lam_low");
-    double lam_step = p->d("lam_step");
+    double wl_low  = p->d("wl_low");
+    double wl_step = p->d("wl_step");
     for (size_t i = 0; i < dim_spec[0]; i++){
         for (size_t j = 0; j < dim_spec[1]; j++){
             for (size_t k = 0; k < dim_spec[2]; k++){
-                data_spec[i][j][k][0] = lam_low + ((double) k) * lam_step;
+                data_spec[i][j][k][0] = wl_low + ((double) k) * wl_step;
             }
         }
     }
@@ -62,10 +62,10 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
     for (size_t i=0; i <= dim_mass[0]; i++) {
         r[i] = p->d("r_out") - i * dR;
     }
-
-    double E, T, dL, B, S, L, wl, frq, drn;
-    double A = cs::G * p->d("m_primary") * cs::m_sun; // Bulhar --> G * Mp = 1.0 
-    double Q = 1e17;
+    
+    double A = cs::G * p->d("m_primary") * cs::m_sun;
+    double temp_atm = p->d("temp_atm");
+    double E, wl, frq, S;
 
     while (true) {
         MPI_Recv(&data_mass[0][0][0], len_mass, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
@@ -76,35 +76,20 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
             for (size_t i = 0; i < dim_spec[0]; i++) {          // pres vsechny prstence
                 for (size_t j = 0; j < dim_spec[1]; j++) {      // pres vsechny bunky v prstenci
                     for (size_t k = 0; k < dim_spec[2]; k++) {  // pres rozsah vl. delek
-                        
-                        drn = Q * data_mass[i][j][9]; // drain
-
-                        //if (drn > 0.0) {
-                        //std::cout << drn << ", " << dR << std::endl;
-                        //}
-
-                        E   = 0.5 * A * dR * drn / (r[i] * r[i+1]);
-
-                        T   = data_mass[i][j][10];
-
+                        // vlnova delka -> frekvence
                         wl  = data_spec[i][j][k][0];
                         frq = cs::c / wl;
 
-                        dL  = 4.9e-11 * (E / 1e5) * std::exp(-1.0 * cs::h * frq/ (cs::k * 1e5));
-
-                        B   = planck(wl, T);
-                        
+                        // zareni samotneho disku
                         S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_mass[1];
+                        data_spec[i][j][k][1] = 2.0 * S * planck(wl, data_mass[i][j][10]); // vlnova delka, teploda
 
-                        //L   = 2.0 * S * B + dL;
-                        L   = 2.0 * S * B + dL;
-
-                        data_spec[i][j][k][1] = L;
+                        // flickering
+                        E                       = 0.5 * A * dR * data_mass[i][j][9] / (r[i] * r[i+1]); // energine ztracena drainem
+                        data_spec[i][j][k][2]   = 4.9e-11 * (E / temp_atm) * std::exp(-1.0 * cs::h * frq/ (cs::k * temp_atm)); // zareni z drainu -> flickering
                     }
                 }
             }
-
-            //spectrum(data_mass, data_spec, dim_mass, dim_spec);
         }
         
         MPI_Send(&(data_spec[0][0][0][0]), len_spec, MPI_DOUBLE, 0, status.MPI_TAG, MPI_COMM_WORLD);
@@ -126,7 +111,6 @@ void Radiation::master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spe
 
     // verbosity?
     bool v = p->b("v");
-
 
     // input drain file / output spectrum File
     std::string mass_fpath = (p->isSet("mass_file")) ? p->s("mass_file") : p->s("outdir") + "/mass.h5";

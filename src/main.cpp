@@ -32,8 +32,8 @@ void sim(int rank, int n_workers, ArgumentParser* p) {
 // radiation task
 void rad(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions
-    std::vector<size_t> dim_mass    = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
-    std::vector<size_t> dim_spec    = {dim_mass[0], dim_mass[1], (size_t)((p->d("lam_high") - p->d("lam_low")) / p->d("lam_step") + 1), 2};
+    std::vector<size_t> dim_mass = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
+    std::vector<size_t> dim_spec = {dim_mass[0], dim_mass[1], (size_t)((p->d("wl_high") - p->d("wl_low")) / p->d("wl_step") + 1), 3};
 
     // Process specific call
     if (rank == cs::mpi::MASTER) {
@@ -94,13 +94,15 @@ int main(int argc, char **argv) {
     p->addArgument(new Argument<double>("r_out", 50.0 * 5e8));
 
     // inner / outer mass influx
-    p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
+    //p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
     p->addArgument(new Argument<double>("q", 0.5));         // local model mass influx
 
     // Radiation wavelength specification (range, step)
-    p->addArgument(new Argument<double>("lam_low", 1e-5));
-    p->addArgument(new Argument<double>("lam_high", 9e-5));
-    p->addArgument(new Argument<double>("lam_step", 1e-7));
+    p->addArgument(new Argument<double>("wl_low", 1e-5));
+    p->addArgument(new Argument<double>("wl_high", 9e-5));
+    p->addArgument(new Argument<double>("wl_step", 1e-7));
+
+    p->addArgument(new Argument<double>("temp_atm", 1e5));     // atmosphere temperature
 
     // Simulation model ode stepper
     p->addArgument(new Argument<std::string>("stepper", "fehlberg78"));
