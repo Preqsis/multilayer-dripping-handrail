@@ -58,28 +58,28 @@ int main(int argc, char **argv) {
     ArgumentParser* p = new ArgumentParser();
 
     // taks selection and verbosity 
-    p->addArgument(new Argument<bool>("v", false));     // verbosity
-    p->addArgument(new Argument<bool>("sim", false));   // run mass distribution sim
-    p->addArgument(new Argument<bool>("rad", false));   // run radiation output computation
-    p->addArgument(new Argument<bool>("obs", false));   // run observation and filtering
+    p->addArgument(new Argument<bool>("v", false)); // verbosity
+    p->addArgument(new Argument<bool>("sim", false)); // run mass distribution sim
+    p->addArgument(new Argument<bool>("rad", false)); // run radiation output computation
+    p->addArgument(new Argument<bool>("obs", false)); // run observation and filtering
 
     // Steps (number of steps, range, etc.)
-    p->addArgument(new Argument<int>("step_n", 5e5));  // number of simulation steps
-    p->addArgument(new Argument<int>("step_first"));   // first step in range
-    p->addArgument(new Argument<int>("step_last"));    // last step in range
-    p->addArgument(new Argument<int>("step_wfirst"));  // first step to save
-    p->addArgument(new Argument<int>("step_wlast"));   // first step to save
+    p->addArgument(new Argument<int>("step_n", 5e5)); // number of simulation steps
+    p->addArgument(new Argument<int>("step_first")); // first step in range
+    p->addArgument(new Argument<int>("step_last")); // last step in range
+    p->addArgument(new Argument<int>("step_wfirst")); // first step to save
+    p->addArgument(new Argument<int>("step_wlast")); // first step to save
 
     // Disk dimensions
-    Argument<int>* idim = new Argument<int>("idim");    // number of layers
+    Argument<int>* idim = new Argument<int>("idim"); // number of layers
     idim->setRequired(true);
     p->addArgument(idim);
-    Argument<int>* jdim = new Argument<int>("jdim");    // number of cells in each layer
+    Argument<int>* jdim = new Argument<int>("jdim"); // number of cells in each layer
     jdim->setRequired(true);
     p->addArgument(jdim);
 
     // Input / output defs
-    Argument<std::string>* outdir = new Argument<std::string>("outdir");        // data output directory
+    Argument<std::string>* outdir = new Argument<std::string>("outdir"); // data output directory
     outdir->setRequired(true);
     p->addArgument(outdir);                                     
     Argument<std::string>* mass_file = new Argument<std::string>("mass_file");  // input mass_file

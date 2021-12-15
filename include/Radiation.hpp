@@ -2,7 +2,8 @@
 #define RADIATION_HPP
 
 #include <vector>
-#include "argparse-cpp/ArgumentParser.h"
+
+class ArgumentParser; 
 
 namespace Radiation {
 

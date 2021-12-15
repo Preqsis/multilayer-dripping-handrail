@@ -1,6 +1,10 @@
 #ifndef OBSERVATION_HPP
 #define OBSERVATION_HPP
 
+#include <vector>
+
+class ArgumentParser;
+
 namespace Observation {
 
 // Function for "sim" MPI slave processes
