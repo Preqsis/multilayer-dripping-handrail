@@ -23,7 +23,7 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
     c.save()
     c.restore()
 
-    c.set_line_width(dr)
+    c.set_line_width(1.02 * dr)
     
     dphi = 2. * np.pi / jdim
 
@@ -36,7 +36,7 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
 
             rgba = colormap(m / mlimit)
 
-            c.arc(0.495, 0.5, r, azm, azm+dphi)
+            c.arc(0.495, 0.5, r, azm, azm+dphi*1.02)
             c.set_source_rgb(rgba[0], rgba[1], rgba[2])  # Solid color
             c.stroke()
 
