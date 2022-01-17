@@ -138,22 +138,23 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     m_primary       = p->d("m_primary") * cs::m_sun;
     r_in            = p->d("r_in");
     r_out           = p->d("r_out");
-
+    
     // MPI status flag holder
     MPI_Status status;
 
     // verbosity?
-    bool v = p->b("v");
-
+    bool v = p->b("verbose");
+    
     // number of simulation steps
-    uint steps = p->i("step_n");
-    int one_percent = steps / 100;
+    uint n = p->i("n");
+    int one_percent = n / 100;
+    
 
     // write checking vars
-    bool wf = p->isSet("step_wfirst");
-    uint sf = wf ? p->i("step_wfirst") : 0;
-    bool wl = p->isSet("step_wlast");
-    uint sl = wl ? p->i("step_wlast") : 0;
+    bool wf = p->isSet("save_start");
+    uint sf = wf ? p->i("save_start") : 0;
+    bool wl = p->isSet("save_end");
+    uint sl = wl ? p->i("save_end") : 0;
 
     // "real" sim dimensions
     // {rings, cells, cell_data}
@@ -210,7 +211,10 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     // Compute all simulation steps
     uint i, j, k, c;
     int slave;
-    for (uint s = 1; s < steps; s++) {
+
+
+
+    for (uint s = 1; s < n; s++) {
         // Sort, mark (compute flag) and send jobs to specific slave processes
         i = 0;
         j = 0;
@@ -259,7 +263,7 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
         // info msg.
         if (v) {
             if (one_percent == 0 || s % one_percent == 0) {
-                std::cout << "Mass distribution ... " << (int) (100.0 * s / (steps)) << "%\t\r" << std::flush;
+                std::cout << "Mass distribution ... " << (int) (100.0 * s / (n)) << "%\t\r" << std::flush;
             }
         }
     }

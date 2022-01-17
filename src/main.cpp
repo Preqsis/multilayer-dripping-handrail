@@ -57,35 +57,65 @@ int main(int argc, char **argv) {
     // create argParser
     ArgumentParser* p = new ArgumentParser();
 
-    // taks selection and verbosity 
-    p->addArgument(new Argument<bool>("v", false)); // verbosity
-    p->addArgument(new Argument<bool>("sim", false)); // run mass distribution sim
-    p->addArgument(new Argument<bool>("rad", false)); // run radiation output computation
-    p->addArgument(new Argument<bool>("obs", false)); // run observation and filtering
+    // Enable verbosity
+    Argument<bool>* verbose = new Argument<bool>("verbose", false);
+    verbose->setShorthand("v");
+    verbose->setHelp("Enables verbose mode.");
+    p->addArgument(verbose);
 
-    // Steps (number of steps, range, etc.)
-    p->addArgument(new Argument<int>("step_n", 5e5)); // number of simulation steps
-    p->addArgument(new Argument<int>("step_first")); // first step in range
-    p->addArgument(new Argument<int>("step_last")); // last step in range
-    p->addArgument(new Argument<int>("step_wfirst")); // first step to save
-    p->addArgument(new Argument<int>("step_wlast")); // first step to save
+    // Run mass distribution
+    Argument<bool>* asim = new Argument<bool>("sim", false);
+    asim->setHelp("Run mass distribution task.");
+    p->addArgument(asim); // run mass distribution sim
+
+    // Run radiation
+    Argument<bool>* arad = new Argument<bool>("rad", false);
+    arad->setHelp("Run radiation task.");
+    p->addArgument(arad); // run radiation output computation
+
+    // Run obseravation
+    /*
+    Argument<bool>* asim = new Argument<bool>("sim");
+    asim->setHelp("Run mass distribution task.")
+    p->addArgument(new Argument<bool>("obs", false)); // run observation and filtering
+    */
+
+    // Number of sim steps
+    p->addArgument(new Argument<int>("n", 5e5, "Number of simulation steps.")); // number of simulation steps
+    //p->addArgument(new Argument<int>("n_start")); // first step in range
+    //p->addArgument(new Argument<int>("n_end")); // last step in range
+
+    // Specify steps range to save
+    Argument<int>* save_start = new Argument<int>("save_start");
+    save_start->setHelp("First step to save.");
+    p->addArgument(save_start);
+    Argument<int>* save_end = new Argument<int>("save_end");
+    save_end->setHelp("Last step to save.");
+    p->addArgument(save_end);
 
     // Disk dimensions
     Argument<int>* idim = new Argument<int>("idim"); // number of layers
     idim->setRequired(true);
+    idim->setHelp("Number of layers(aka. rings).");
     p->addArgument(idim);
     Argument<int>* jdim = new Argument<int>("jdim"); // number of cells in each layer
     jdim->setRequired(true);
+    jdim->setHelp("Number of cells in each ring.");
     p->addArgument(jdim);
 
     // Input / output defs
     Argument<std::string>* outdir = new Argument<std::string>("outdir"); // data output directory
     outdir->setRequired(true);
+    outdir->setShorthand("o");
+    outdir->setHelp("Output data directory.");
     p->addArgument(outdir);                                     
     Argument<std::string>* mass_file = new Argument<std::string>("mass_file");  // input mass_file
     mass_file->setRequired(false);
+    mass_file->setHelp("Input HDF5 mass data file.");
     p->addArgument(mass_file);                                     
-    p->addArgument(new Argument<std::string>("mass_dkey"));                    // initial data key of input mass file
+    Argument<std::string>* mass_dkey = new Argument<std::string>("mass_dkey"); // initial mass dkey
+    mass_dkey->setHelp("Initial data key in HDF5 input mass data file.");
+    p->addArgument(mass_dkey);
     p->addArgument(new Argument<std::string>("blob_file"));                    // input blob json file
 
     // Simulated system parameters
@@ -102,6 +132,7 @@ int main(int argc, char **argv) {
     p->addArgument(new Argument<double>("wl_high", 9e-5));
     p->addArgument(new Argument<double>("wl_step", 1e-7));
 
+    //
     p->addArgument(new Argument<double>("temp_atm", 1e5));     // atmosphere temperature
 
     // Simulation model ode stepper
@@ -115,6 +146,11 @@ int main(int argc, char **argv) {
         return 0;
     }
 
+    // Always start on new line
+    if (rank == cs::mpi::MASTER) {
+        std::cout << std::endl;
+    }
+
     // Mass distribution
     if (p->b("sim")) {
         sim(rank, n_workers, p);
@@ -126,9 +162,10 @@ int main(int argc, char **argv) {
     }
 
     // 'Observation' and filtering
+    /*
     if (p->b("obs")) {
         obs(rank, n_workers, p);
-    }
+    }*/
     
     // terminate mpi execution env
     MPI_Finalize();
