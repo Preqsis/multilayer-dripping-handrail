@@ -9,10 +9,12 @@
 #include "rapidjson/document.h"
 namespace json = rapidjson;
 
+#include "Constants.hpp"
+namespace cs = Constants;
+
 #include "Distributor.hpp"
 
 Distributor::Distributor() {
-    _q          = 0.5;
     _zc         = 5.5;
     _hasBlobs   = false;
 }
@@ -22,27 +24,27 @@ Distributor::Distributor(double*** grid, std::vector<size_t> dim) : Distributor(
     _dim            = dim;
 }
 
-Distributor::Distributor(double*** grid, std::vector<size_t> dim, double q) :  Distributor(grid, dim) {
-    setInflux(q);
-}
-
-Distributor::Distributor(double*** grid, std::vector<size_t> dim, double q, std::string blob_file) : Distributor(grid, dim, q) {
+Distributor::Distributor(double*** grid, std::vector<size_t> dim, std::string blob_file) : Distributor(grid, dim) {
     setBlobSchedule(blob_file);
     _hasBlobs   = true;
 }
 
-Distributor::~Distributor() {
-
-}
+Distributor::~Distributor() {}
 
 void Distributor::setRotationProfile(std::vector<double> profile) {
     _rProfile.clear();
     _rProfile = profile;
 }
 
-void Distributor::setTemperatureProfile(std::vector<double> profile) {
-    _tProfile.clear();
-    _tProfile = profile;
+void Distributor::setParams(double M, double r_in, double r_out, double Q, double q) {
+    _M      = M;
+    _r_in   = r_in;
+    _r_out  = r_out;
+    _Q      = Q;
+    _q      = q;
+    _dt     = 2.0 * M_PI * std::sqrt(std::pow(_r_out, 3.0) / cs::G / _M / cs::m_sun);
+    _qs     = _Q * _dt / _q;
+    _T_in   = std::pow((3.0 * cs::G * cs::m_sun * _M * _Q) / (8.0 * M_PI * cs::sigma * std::pow(_r_in, 3.0)), 0.25);
 }
 
 void Distributor::setBlobSchedule(std::string blob_file) {
@@ -171,7 +173,9 @@ void Distributor::run(uint s) {
                 
                 // odebrat od zdrojove bunky
                 _grid[i][j][5]          -= mb; // m
-                _grid[i][j][6]          -= mb; // dm
+
+                // DORESIT !!! --> co se zapornym dm???
+                //_grid[i][j][6]          -= mb; // dm 
 
                 // 'vynulovat' rychlost zdrojove bunky
                 _grid[i][j][4]          = 0.0;
@@ -182,8 +186,8 @@ void Distributor::run(uint s) {
                 _grid[i+1][j_left][5] += part_left * mb; // m
                 _grid[i+1][j_left][6] = part_left * mb; // dm
 
-                _grid[i+1][j_right][5] += part_right* mb; // m
-                _grid[i+1][j_right][6] = part_right* mb; // dm
+                _grid[i+1][j_right][5] += part_right * mb; // m
+                _grid[i+1][j_right][6] = part_right * mb; // dm
 
                 // hmotu na drain
                 _grid[i][j][9] = mb;
@@ -201,7 +205,7 @@ void Distributor::run(uint s) {
 
                 // odebrat od zdrojove bunky
                 _grid[i][j][5]  -= mb;
-                _grid[i][j][6]  -= mb;
+                //_grid[i][j][6]  -= mb;
 
                 // 'vynulovat' rychlost zdrojove bunky
                 _grid[i][j][4]  = 0.0;
@@ -218,5 +222,29 @@ void Distributor::run(uint s) {
     // blob?
     if (_hasBlobs) {
         runBlobs(s);
+    }
+
+    // temperature
+    double f = 1.0; // inner boundary effect??
+    double ef = 1.0; // energy conversion efficiency aka. A'
+    double A = ef * cs::G * _M * cs::m_sun / (8.0 * M_PI *std::pow(_r_in, 3.0) * cs::sigma * std::pow(_T_in, 4.0) * _dt);
+    double temp;
+    for (i = 0; i < _dim[0]; i++) {
+        for (j = 0; j < _dim[1]; j++) {
+            
+            //temp = _T_in * std::pow((1.0 + A * _grid[i][j][6] * _qs) / std::pow(_grid[i][j][7] / _r_in, 3.0), 0.25) * std::pow(f, 0.25);
+            //if (!isnan(temp) && _grid[i][j][6] < 0.0) {
+            //    std::cout << i << ", " << j << ", " << _grid[i][j][6] << std::endl;
+            //}
+            
+            _grid[i][j][10] = _T_in * std::pow((1.0 + A * _grid[i][j][6] * _qs) / std::pow(_grid[i][j][7] / _r_in, 3.0), 0.25) * std::pow(f, 0.25);
+
+            /*
+            if (_grid[i][j][6] > 0.0) {
+                std::cout << " ---->> ";
+            }
+            std::cout << s << ", " << i << ", " << j << ", " << _grid[i][j][10] << ", " << _T_in << std::endl;
+            */
+        }
     }
 }

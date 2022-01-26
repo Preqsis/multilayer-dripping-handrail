@@ -13,12 +13,21 @@ typedef std::map<uint, btype> stype;
 
 class Distributor {
 private:
+    double _M;
+    double _r_in;
+    double _r_out;
+    double _Q;
+    double _dt;
+    double _T_in;
+        
     double _q;
     double _zc;
+
+    double _qs;                         // "inner / outer" mass scaling
+
     double*** _grid;
     std::vector<size_t> _dim;           // comms dimensions
     std::vector<double> _rProfile;      // rotation profile
-    std::vector<double> _tProfile;      // temperature profile
     stype _blobSchedule;
     bool _hasBlobs;
 public:
@@ -26,15 +35,13 @@ public:
 
     Distributor(double*** grid, std::vector<size_t> dim);
 
-    Distributor(double*** grid, std::vector<size_t> dim, double q);
-
-    Distributor(double*** grid, std::vector<size_t> dim, double q, std::string blob_file);
+    Distributor(double*** grid, std::vector<size_t> dim, std::string blob_file);
 
     ~Distributor();
 
     void setRotationProfile(std::vector<double> profile);
 
-    void setTemperatureProfile(std::vector<double> profile);
+    void setParams(double M, double r_in, double r_out, double Q, double q);
 
     void setBlobSchedule(std::string blob_file);
 

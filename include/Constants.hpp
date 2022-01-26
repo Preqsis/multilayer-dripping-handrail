@@ -26,6 +26,9 @@ namespace Constants {
     
     // Gravitational constant
     const double G      = 6.67259e-8; // cm^3 * g^-1 * s^-2
+
+    // Stefan-Boltzmann constant
+    const double sigma  = 5.670374e-5; // erg * cm^-2 * s^-1 * K^-4
 } 
 
 #endif

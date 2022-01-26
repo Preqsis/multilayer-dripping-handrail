@@ -29,9 +29,10 @@ void Radiation::terminate(std::vector<size_t> dim, int n_workers) {
 }
 
 double Radiation::planck(double wl, double T) {
-    double a = 2.0 * cs::h * std::pow(cs::c, 2.0);
-    double b = cs::h * cs::c / (wl * cs::k * T);
-    return a / (std::pow(wl, 5.0) * (std::exp(b) - 1.0 ));
+    double a    = 2.0 * cs::h * std::pow(cs::c, 2.0);
+    double b    = cs::h * cs::c / (wl * cs::k * T);
+    double val  =  a / (std::pow(wl, 5.0) * (std::exp(b) - 1.0 ));
+    return val;
 }
 
 void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec, ArgumentParser* p) {
@@ -63,10 +64,8 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
         r[i] = p->d("r_out") - i * dR;
     }
     
-    double A = cs::G * p->d("m_primary") * cs::m_sun;
-    double temp_atm = p->d("temp_atm");
-    double E, wl, frq, S;
-
+    double wl, frq, S;
+    double tmp;
     while (true) {
         MPI_Recv(&data_mass[0][0][0], len_mass, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
@@ -74,19 +73,33 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
 
         if (status.MPI_TAG == cs::mpi::COMPUTE) {
             for (size_t i = 0; i < dim_spec[0]; i++) {          // pres vsechny prstence
+                S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_mass[1];
+                
                 for (size_t j = 0; j < dim_spec[1]; j++) {      // pres vsechny bunky v prstenci
                     for (size_t k = 0; k < dim_spec[2]; k++) {  // pres rozsah vl. delek
                         // vlnova delka -> frekvence
                         wl  = data_spec[i][j][k][0];
-                        frq = cs::c / wl;
+                        //frq = cs::c / wl;
+                        
+                        tmp = planck(wl, data_mass[i][j][10]);
+
+                        data_spec[i][j][k][1] = 2.0 * S * tmp; // vlnova delka, teplota
+
+                        //std::cout << wl << ", " << data_mass[i][j][10] << ", " <<  planck(wl, data_mass[i][j][10]) << std::endl;
+
+                        /*
+                        // DORESIT !!!!!!!!!!!!!!!!!!
 
                         // zareni samotneho disku
                         S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_mass[1];
-                        data_spec[i][j][k][1] = 2.0 * S * planck(wl, data_mass[i][j][10]); // vlnova delka, teploda
+                        data_spec[i][j][k][1] = 2.0 * S * planck(wl, data_mass[i][j][10]); // vlnova delka, teplota
 
                         // flickering
                         E                       = 0.5 * A * dR * data_mass[i][j][9] / (r[i] * r[i+1]); // energine ztracena drainem
                         data_spec[i][j][k][2]   = 4.9e-11 * (E / temp_atm) * std::exp(-1.0 * cs::h * frq/ (cs::k * temp_atm)); // zareni z drainu -> flickering
+
+                        // --------------------------
+                        */
                     }
                 }
             }
@@ -110,7 +123,7 @@ void Radiation::master(std::vector<size_t> dim_mass, std::vector<size_t> dim_spe
     int one_percent = (step_last - step_first) / 100;
 
     // verbosity?
-    bool v = p->b("v");
+    bool v = p->b("verbose");
 
     // input drain file / output spectrum File
     std::string mass_fpath = (p->isSet("mass_file")) ? p->s("mass_file") : p->s("outdir") + "/mass.h5";

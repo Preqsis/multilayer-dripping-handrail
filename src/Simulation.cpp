@@ -47,9 +47,9 @@ void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentPars
             data[i][j][7]   = r_out - i * (r_out - r_in) / ((double) dim[0]); // cell specific radius
             data[i][j][8]   = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
             data[i][j][9]   = 0.0; // drain
-            data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // temperature
-            //data[i][j][11]  = std::pow(r_out, 2.0) / std::pow(((double)dim[0] - i - 1) * (r_out - r_in) / ((double)dim[0] - 1) , 2.0); // local 'g'
-            data[i][j][11]  = 1.0; // local 'g'
+            data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // 'default' temperature
+            data[i][j][11]  = std::pow(r_out, 2.0) / std::pow(((double)dim[0] - i - 1) * (r_out - r_in) / ((double)dim[0] - 1) , 2.0); // local 'g'
+            //data[i][j][11]  = 1.0; // local 'g'
             data[i][j][12]  = 1.0; // compute flag (0.0 --> do not compute)
         }
     }
@@ -122,6 +122,7 @@ void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
             data[i][3] = y[0]; // z
             data[i][4] = y[1]; // v
         }
+
 
         /** Send results to master */
         MPI_Send(&data[0][0], len_data, MPI_DOUBLE, 0, cs::mpi::COMPUTE, MPI_COMM_WORLD);
@@ -199,9 +200,10 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     // handles mass redistribution
     Distributor* dst;
     if (p->isSet("blob_file")) 
-        dst = new Distributor(grid, dim, p->d("q"), p->s("blob_file"));
+        dst = new Distributor(grid, dim, p->s("blob_file"));
     else 
-        dst = new Distributor(grid, dim, p->d("q"));
+        dst = new Distributor(grid, dim);
+    dst->setParams(p->d("m_primary"), p->d("r_in"), p->d("r_out"), p->d("Q"), p->d("q"));
     dst->setRotationProfile(profile);
 
     // Communication data 'matrix' allocation
@@ -211,9 +213,6 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     // Compute all simulation steps
     uint i, j, k, c;
     int slave;
-
-
-
     for (uint s = 1; s < n; s++) {
         // Sort, mark (compute flag) and send jobs to specific slave processes
         i = 0;

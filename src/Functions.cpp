@@ -13,6 +13,16 @@ namespace H5 = HighFive;
 typedef boost::array<double, 2> state_type;
 typedef unsigned int uint;
 
+double* Functions::alloc_1D_double(int idim) {
+    double* arr;
+    arr = (double*)calloc(idim, sizeof(double));
+    return arr;
+}
+
+double* Functions::alloc_1D_double(std::vector<size_t> dim) {
+    return alloc_1D_double(dim[0]);
+}
+
 // alloc 2D double pointer array
 double** Functions::alloc_2D_double(int idim, int jdim) {
     double** arr;

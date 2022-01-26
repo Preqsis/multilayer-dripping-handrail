@@ -5,11 +5,18 @@ import cairo
 import IPython
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcol
+import matplotlib.cm as cm
 from io import BytesIO, StringIO
 import PIL
 
 def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., bg_rgb=(0, 0, 0), return_surface=False):
-    colormap = plt.cm.get_cmap("magma" if cmap is None else cmap)
+
+    #colormap = mcol.LinearSegmentedColormap.from_list("custom", ["black", "blue", "yellow", "red"])
+    #colormap = plt.cm.get_cmap("magma" if cmap is None else cmap)
+    colormap = plt.cm.get_cmap("inferno" if cmap is None else cmap)
+    
+
     dr = (r_out - r_in) / idim
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, w, h)
@@ -63,7 +70,7 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
 
     return imdata
 
-def render_frame(data_disc, data_lc, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150, lc_plot_range=(0., 1.)):
+def render_frame(data_disc, data_obs, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150, lc_ylim=(0., 1.), lc_depth=200):
     fig, axes = plt.subplots(nrows=2, ncols=1)
 
     fig.set_size_inches(885 / dpi, h / dpi)
@@ -71,10 +78,11 @@ def render_frame(data_disc, data_lc, idim, jdim, w=1920, h=1080, cmap=None, r_in
 
     fig.patch.set_facecolor('#000000')
 
-    axes[0].plot(data_lc[:,0], data_lc[:,1])
+    axes[0].plot(data_obs[:,0], data_obs[:,2])
     axes[0].set_xlabel("STEP", color="#ffffff")
     axes[0].set_ylabel("LUMINOSITY", rotation=90, color="#ffffff")
-    axes[0].set_ylim(lc_plot_range)
+    axes[0].set_ylim(lc_ylim)
+    axes[0].set_xlim((data_obs[:,0].max()-lc_depth, data_obs[:,0].max()))
 
     for ax in axes:
         ax.patch.set_facecolor('#000000')

@@ -6,6 +6,12 @@ namespace H5 = HighFive;
 
 namespace Functions {
 
+// alloc 1D double pointer array
+double* alloc_1D_double(int idim);
+
+// alloc 1D double pointer array
+double* alloc_1D_double(std::vector<size_t> dim);
+
 // alloc 2D double pointer array
 double** alloc_2D_double(int idim, int jdim);
 

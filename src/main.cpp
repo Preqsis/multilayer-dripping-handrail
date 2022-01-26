@@ -44,7 +44,19 @@ void rad(int rank, int n_workers, ArgumentParser* p) {
 }
 
 // observation task
-void obs(int rank, int n_workers, ArgumentParser* p) {}
+void obs(int rank, int n_workers, ArgumentParser* p) {
+    std::vector<size_t> dim_mass = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
+
+    std::vector<size_t> dim_spec = {dim_mass[0], dim_mass[1], (size_t)((p->d("wl_high") - p->d("wl_low")) / p->d("wl_step") + 1), 3};
+    std::vector<size_t> dim_obs = {5};
+
+    // Process specific call
+    if (rank == cs::mpi::MASTER) {
+        Observation::master(dim_spec, dim_obs, n_workers, p);
+    } else {
+        Observation::slave(dim_spec, dim_obs, p);
+    }
+}
 
 int main(int argc, char **argv) {
     // MPI init
@@ -74,16 +86,14 @@ int main(int argc, char **argv) {
     p->addArgument(arad); // run radiation output computation
 
     // Run obseravation
-    /*
-    Argument<bool>* asim = new Argument<bool>("sim");
-    asim->setHelp("Run mass distribution task.")
-    p->addArgument(new Argument<bool>("obs", false)); // run observation and filtering
-    */
+    Argument<bool>* aobs = new Argument<bool>("obs", false);
+    aobs->setHelp("Run mass observation task.");
+    p->addArgument(aobs); // run observation and filtering
 
     // Number of sim steps
     p->addArgument(new Argument<int>("n", 5e5, "Number of simulation steps.")); // number of simulation steps
-    //p->addArgument(new Argument<int>("n_start")); // first step in range
-    //p->addArgument(new Argument<int>("n_end")); // last step in range
+    p->addArgument(new Argument<int>("step_first", 0)); // first step in range
+    p->addArgument(new Argument<int>("step_last", 99)); // last step in range
 
     // Specify steps range to save
     Argument<int>* save_start = new Argument<int>("save_start");
@@ -116,7 +126,13 @@ int main(int argc, char **argv) {
     Argument<std::string>* mass_dkey = new Argument<std::string>("mass_dkey"); // initial mass dkey
     mass_dkey->setHelp("Initial data key in HDF5 input mass data file.");
     p->addArgument(mass_dkey);
-    p->addArgument(new Argument<std::string>("blob_file"));                    // input blob json file
+    Argument<std::string>* blob_file = new Argument<std::string>("blob_file"); // input blob json file
+    blob_file->setHelp("Blobs json file.");
+    p->addArgument(blob_file);
+    Argument<std::string>* spec_file = new Argument<std::string>("spec_file");  // input spec_file
+    mass_file->setRequired(false);
+    mass_file->setHelp("Input HDF5 spectrum data file.");
+    p->addArgument(spec_file);                                     
 
     // Simulated system parameters
     p->addArgument(new Argument<double>("m_primary", 0.8));
@@ -124,19 +140,21 @@ int main(int argc, char **argv) {
     p->addArgument(new Argument<double>("r_out", 50.0 * 5e8));
 
     // inner / outer mass influx
-    //p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
+    p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
     p->addArgument(new Argument<double>("q", 0.5));         // local model mass influx
 
     // Radiation wavelength specification (range, step)
-    p->addArgument(new Argument<double>("wl_low", 1e-5));
+    p->addArgument(new Argument<double>("wl_low", 2e-5));
     p->addArgument(new Argument<double>("wl_high", 9e-5));
     p->addArgument(new Argument<double>("wl_step", 1e-7));
 
     //
-    p->addArgument(new Argument<double>("temp_atm", 1e5));     // atmosphere temperature
+    //p->addArgument(new Argument<double>("temp_atm", 1e5));     // atmosphere temperature
 
     // Simulation model ode stepper
-    p->addArgument(new Argument<std::string>("stepper", "fehlberg78"));
+    Argument<std::string>* stepper = new Argument<std::string>("stepper", "fehlberg78");
+    stepper->setHelp("ODE stepper method.");
+    p->addArgument(stepper);
 
     // Command line args. parser
     if (!p->parse(argc, argv)) {
@@ -162,10 +180,9 @@ int main(int argc, char **argv) {
     }
 
     // 'Observation' and filtering
-    /*
     if (p->b("obs")) {
         obs(rank, n_workers, p);
-    }*/
+    }
     
     // terminate mpi execution env
     MPI_Finalize();
