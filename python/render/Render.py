@@ -10,6 +10,16 @@ import matplotlib.cm as cm
 from io import BytesIO, StringIO
 import PIL
 
+def zscale_linear(val, mlimit):
+    return val / mlimit
+
+def zscale_exponential(val, mlimit):
+    return 1 / (1 - np.exp(val / mlimit))
+
+def zscale_log(val, mlimit):
+    return np.log(val - 1.0) / mlimit
+
+
 def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., bg_rgb=(0, 0, 0), return_surface=False):
 
     #colormap = mcol.LinearSegmentedColormap.from_list("custom", ["black", "blue", "yellow", "red"])
@@ -41,7 +51,8 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
 
             m, azm = data[i][j][5], data[i][j][8] % (2. * np.pi)
 
-            rgba = colormap(m / mlimit)
+            #print(zscale_log(m, mlimit))
+            rgba = colormap(zscale_linear(m, mlimit))
 
             c.arc(0.495, 0.5, r, azm, azm+dphi*1.02)
             c.set_source_rgb(rgba[0], rgba[1], rgba[2])  # Solid color
@@ -70,7 +81,7 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
 
     return imdata
 
-def render_frame(data_disc, data_obs, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150, lc_ylim=(0., 1.), lc_depth=200):
+def render_frame(data_disc, data_obs, idim, jdim, dt, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150, lc_ylim=(0., 1.), lcdepth=200):
     fig, axes = plt.subplots(nrows=2, ncols=1)
 
     fig.set_size_inches(885 / dpi, h / dpi)
@@ -78,11 +89,11 @@ def render_frame(data_disc, data_obs, idim, jdim, w=1920, h=1080, cmap=None, r_i
 
     fig.patch.set_facecolor('#000000')
 
-    axes[0].plot(data_obs[:,0], data_obs[:,2])
-    axes[0].set_xlabel("STEP", color="#ffffff")
-    axes[0].set_ylabel("LUMINOSITY", rotation=90, color="#ffffff")
+    axes[0].plot(data_obs[:,0] * dt, data_obs[:,2])
+    axes[0].set_xlabel("$t\ (s)$", color="#ffffff")
+    axes[0].set_ylabel("$L_{total}\ (erg \cdot s^{-1})$", rotation=90, color="#ffffff")
     axes[0].set_ylim(lc_ylim)
-    axes[0].set_xlim((data_obs[:,0].max()-lc_depth, data_obs[:,0].max()))
+    axes[0].set_xlim((data_obs[:,0].max() * dt - lcdepth * dt, data_obs[:,0].max() * dt))
 
     for ax in axes:
         ax.patch.set_facecolor('#000000')
@@ -99,7 +110,7 @@ def render_frame(data_disc, data_obs, idim, jdim, w=1920, h=1080, cmap=None, r_i
 
     plt.close()
 
-    disc_surface = render_disc(data_disc, idim, jdim, r_in=r_in, r_out=r_out, w=w, h=h, return_surface=True)
+    disc_surface = render_disc(data_disc, idim, jdim, r_in=r_in, r_out=r_out, w=w, h=h, return_surface=True, mlimit=mlimit)
 
     buff = BytesIO()
     disc_surface.write_to_png(buff)

@@ -47,6 +47,10 @@ void Distributor::setParams(double M, double r_in, double r_out, double Q, doubl
     _T_in   = std::pow((3.0 * cs::G * cs::m_sun * _M * _Q) / (8.0 * M_PI * cs::sigma * std::pow(_r_in, 3.0)), 0.25);
 }
 
+double Distributor::get_dt() {
+    return _dt;
+}
+
 void Distributor::setBlobSchedule(std::string blob_file) {
     std::ifstream infile(blob_file);
     std::string content((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());

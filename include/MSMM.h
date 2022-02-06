@@ -14,7 +14,7 @@ protected:
     double _dm; // pritok
     double _v0; // rychlost pritoku
     double _g     = 1.0; // grav. zrychleni
-    double _gamma = 0.05; // 'tuhost pruziny'
+    double _gamma = 0.05; // tlumici parametr
 public:
     virtual void operator()(const state_type &y, state_type &dydx, double x) = 0;
 

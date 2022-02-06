@@ -205,6 +205,9 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
         dst = new Distributor(grid, dim);
     dst->setParams(p->d("m_primary"), p->d("r_in"), p->d("r_out"), p->d("Q"), p->d("q"));
     dst->setRotationProfile(profile);
+    
+    double dt = dst->get_dt();
+    mass_file->createAttribute<double>("dt", H5::DataSpace::From(dt)).write(dt);
 
     // Communication data 'matrix' allocation
     double** data   = fn::alloc_2D_double(comm_dim);

@@ -64,8 +64,9 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
         r[i] = p->d("r_out") - i * dR;
     }
     
-    double wl, frq, S;
-    double tmp;
+    double wl, T, frq, S, A, E;
+    double q = p->d("q");
+    double Q = p->d("Q");
     while (true) {
         MPI_Recv(&data_mass[0][0][0], len_mass, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
@@ -74,32 +75,24 @@ void Radiation::slave(std::vector<size_t> dim_mass, std::vector<size_t> dim_spec
         if (status.MPI_TAG == cs::mpi::COMPUTE) {
             for (size_t i = 0; i < dim_spec[0]; i++) {          // pres vsechny prstence
                 S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_mass[1];
+                A   = 0.5 * cs::G * cs::m_sun * p->d("m_primary") * dR * Q / q;
                 
                 for (size_t j = 0; j < dim_spec[1]; j++) {      // pres vsechny bunky v prstenci
                     for (size_t k = 0; k < dim_spec[2]; k++) {  // pres rozsah vl. delek
                         // vlnova delka -> frekvence
                         wl  = data_spec[i][j][k][0];
-                        //frq = cs::c / wl;
+                        frq = cs::c / wl;
+                        T   = data_mass[i][j][10];
                         
-                        tmp = planck(wl, data_mass[i][j][10]);
+                        // "tepelne" razeni
+                        data_spec[i][j][k][1]   = 2.0 * S * planck(wl, T); // vln. delka, teplota
 
-                        data_spec[i][j][k][1] = 2.0 * S * tmp; // vlnova delka, teplota
-
-                        //std::cout << wl << ", " << data_mass[i][j][10] << ", " <<  planck(wl, data_mass[i][j][10]) << std::endl;
-
-                        /*
-                        // DORESIT !!!!!!!!!!!!!!!!!!
-
-                        // zareni samotneho disku
-                        S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_mass[1];
-                        data_spec[i][j][k][1] = 2.0 * S * planck(wl, data_mass[i][j][10]); // vlnova delka, teplota
-
-                        // flickering
-                        E                       = 0.5 * A * dR * data_mass[i][j][9] / (r[i] * r[i+1]); // energine ztracena drainem
-                        data_spec[i][j][k][2]   = 4.9e-11 * (E / temp_atm) * std::exp(-1.0 * cs::h * frq/ (cs::k * temp_atm)); // zareni z drainu -> flickering
-
-                        // --------------------------
-                        */
+                        // flickering vlivem ztraty energie
+                        E                       = A * data_mass[i][j][9] / (r[i] * r[i+1]); // energine ztracena drainem
+                        //if (data_mass[i][j][9] > 0.0) {
+                        //    std::cout << A << ", " << E << std::endl; 
+                        //}
+                        data_spec[i][j][k][2]   = 4.9e-11 * (E / T) * std::exp(-1.0 * cs::h * frq/ (cs::k * T)); // zareni z drainu -> flickering
                     }
                 }
             }

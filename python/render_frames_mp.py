@@ -14,17 +14,16 @@ import multiprocessing as mp
 
 from Render import *
 
-def worker(sim_file, obs_file, output, frames, w, h, i, lcdepth=200, frange=(0, 100)) -> None:
+def worker(sim_file, obs_file, output, frames, w, h, i, lcdepth=200, frange=(0, 100), mlimit=16.) -> None:
+
     with h5py.File(sim_file, "r") as f_sim, h5py.File(obs_file, "r") as f_obs:
         idim, jdim = f_sim.attrs["idim"], f_sim.attrs["jdim"]
 
+        dt = f_sim.attrs["dt"]
         data_obs = f_obs["data"][()]
         y_max = data_obs[(data_obs[:,0] >= frange[0]) & (data_obs[:,0] <= frange[1])][:,2].max()
-        lc_ylim = (- y_max * 0.05, y_max * 1.05)
-
-        print(data_obs)
-
-        return 
+        y_min = data_obs[(data_obs[:,0] >= frange[0]) & (data_obs[:,0] <= frange[1])][:,2].min()
+        lc_ylim = (y_min - (y_max - y_min) * 0.1, y_max + (y_max - y_min) * 0.1)
 
         for frame in frames:
             dkey = f"data_{frame}"
@@ -32,7 +31,7 @@ def worker(sim_file, obs_file, output, frames, w, h, i, lcdepth=200, frange=(0, 
 
             m = (data_obs[:,0] <= frame) & (data_obs[:,0] > frame - lcdepth)
 
-            img = render_frame(f_sim[dkey][()], data_obs[m], idim, jdim, w=w, h=h, lc_depth=200, lc_ylim=lc_ylim)
+            img = render_frame(f_sim[dkey][()], data_obs[m], idim, jdim, dt, w=w, h=h, lcdepth=lcdepth, lc_ylim=lc_ylim, mlimit=mlimit)
             img.save(f"{output}/frame_{frame:06}.png")
 
 if __name__ == "__main__":
@@ -49,7 +48,8 @@ if __name__ == "__main__":
     p.add_argument("--last_frame", default=100, type=int, help="Last frame to plot")
     p.add_argument("--s", type=int, default=1, help="Plot every nth frame (default=1)")
     p.add_argument("--n", type=int, default=8, help="number of workers (default=8)")
-    p.add_argument("--lcdepth", type=int, default=200, help="Light curve plot depth (default=200)")
+    p.add_argument("--lcdepth", type=int, default=500, help="Light curve plot depth (default=200)")
+    p.add_argument("--mlimit", type=float, default=16., help="Mass to color scaling limit (default=16)")
     args = p.parse_args()
 
     if not os.path.isdir(args.output):
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     fsets = np.array_split(np.arange(args.first_frame, args.last_frame+args.s, args.s), args.n)
 
     # definice procesu
-    proc = [mp.Process(target=worker, args=(args.sim_file, args.obs_file, args.output, frames, args.width, args.height, i, args.lcdepth, (args.first_frame, args.last_frame))) for i, frames in enumerate(fsets)]
+    proc = [mp.Process(target=worker, args=(args.sim_file, args.obs_file, args.output, frames, args.width, args.height, i, args.lcdepth, (args.first_frame, args.last_frame), args.mlimit)) for i, frames in enumerate(fsets)]
 
     # zpracovani
     for p in proc:

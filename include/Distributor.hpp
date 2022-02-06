@@ -43,6 +43,8 @@ public:
 
     void setParams(double M, double r_in, double r_out, double Q, double q);
 
+    double get_dt();
+
     void setBlobSchedule(std::string blob_file);
 
     void addBlob(BlobData* b);
