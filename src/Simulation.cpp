@@ -163,10 +163,10 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
 
     // grid allocation
     double*** grid = fn::alloc_3D_double(dim);
-    if (p->isSet("mass_file") && p->isSet("mass_dkey")) { // sim start of external data
-        H5::File* mass_infile = new H5::File(p->s("mass_file"), H5::File::ReadOnly);
-        mass_infile->getDataSet(p->s("mass_dkey")).read((double***) grid[0][0]);
-        delete mass_infile;
+    if (p->isSet("sim_file") && p->isSet("sim_dkey")) { // sim start of external data
+        H5::File* sim_infile = new H5::File(p->s("sim_file"), H5::File::ReadOnly);
+        sim_infile->getDataSet(p->s("sim_dkey")).read((double***) grid[0][0]);
+        delete sim_infile;
     } else { // sim starts by setting parameters
         grid_init(grid, dim, p);
     }
@@ -175,14 +175,14 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     fn::mkdir(p->s("outdir"));
 
     // mass output
-    H5::File* mass_file;
-    mass_file = new H5::File(p->s("outdir") + "/mass.h5", H5::File::Overwrite);
-    mass_file->createAttribute<int>("idim", H5::DataSpace::From(dim[0])).write(dim[0]);
-    mass_file->createAttribute<int>("jdim", H5::DataSpace::From(dim[1])).write(dim[1]);
+    H5::File* sim_file;
+    sim_file = new H5::File(p->s("outdir") + "/sim.h5", H5::File::Overwrite);
+    sim_file->createAttribute<int>("idim", H5::DataSpace::From(dim[0])).write(dim[0]);
+    sim_file->createAttribute<int>("jdim", H5::DataSpace::From(dim[1])).write(dim[1]);
 
     // initial state save and write check
     if (writable(wf, wl, 0, sf, sl)) {
-        fn::writeDataSet(mass_file, grid, dim, "data_0"); 
+        fn::writeDataSet(sim_file, grid, dim, "data_0"); 
     }
 
     // Rotation profile
@@ -207,7 +207,7 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     dst->setRotationProfile(profile);
     
     double dt = dst->get_dt();
-    mass_file->createAttribute<double>("dt", H5::DataSpace::From(dt)).write(dt);
+    sim_file->createAttribute<double>("dt", H5::DataSpace::From(dt)).write(dt);
 
     // Communication data 'matrix' allocation
     double** data   = fn::alloc_2D_double(comm_dim);
@@ -259,7 +259,7 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
 
         // write mass
         if (writable(wf, wl, s, sf, sl)) {
-            fn::writeDataSet(mass_file, grid, dim, "data_" + std::to_string(s));
+            fn::writeDataSet(sim_file, grid, dim, "data_" + std::to_string(s));
         }
 
         // info msg.
@@ -274,7 +274,7 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     terminate(comm_dim, n_workers);
 
     // cleanup
-    delete mass_file;
+    delete sim_file;
     delete dst;
 
     // info msg.

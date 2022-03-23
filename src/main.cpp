@@ -58,17 +58,7 @@ void obs(int rank, int n_workers, ArgumentParser* p) {
     }
 }
 
-int main(int argc, char **argv) {
-    // MPI init
-    int rank, size, n_workers; // mpi process rank, num of mpi processes
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    n_workers = size-1;
-
-    // create argParser
-    ArgumentParser* p = new ArgumentParser();
-
+void ArgumentParserInit(ArgumentParser* p) {
     // Enable verbosity
     Argument<bool>* verbose = new Argument<bool>("verbose", false);
     verbose->setShorthand("v");
@@ -119,20 +109,20 @@ int main(int argc, char **argv) {
     outdir->setShorthand("o");
     outdir->setHelp("Output data directory.");
     p->addArgument(outdir);                                     
-    Argument<std::string>* mass_file = new Argument<std::string>("mass_file");  // input mass_file
-    mass_file->setRequired(false);
-    mass_file->setHelp("Input HDF5 mass data file.");
-    p->addArgument(mass_file);                                     
-    Argument<std::string>* mass_dkey = new Argument<std::string>("mass_dkey"); // initial mass dkey
-    mass_dkey->setHelp("Initial data key in HDF5 input mass data file.");
-    p->addArgument(mass_dkey);
+    Argument<std::string>* sim_file = new Argument<std::string>("sim_file");  // input sim_file
+    sim_file->setRequired(false);
+    sim_file->setHelp("Input HDF5 mass data file.");
+    p->addArgument(sim_file);                                     
+    Argument<std::string>* sim_dkey = new Argument<std::string>("sim_dkey"); // initial sim dkey
+    sim_dkey->setHelp("Initial data key in HDF5 input mass data file.");
+    p->addArgument(sim_dkey);
     Argument<std::string>* blob_file = new Argument<std::string>("blob_file"); // input blob json file
     blob_file->setHelp("Blobs json file.");
     p->addArgument(blob_file);
-    Argument<std::string>* spec_file = new Argument<std::string>("spec_file");  // input spec_file
-    mass_file->setRequired(false);
-    mass_file->setHelp("Input HDF5 spectrum data file.");
-    p->addArgument(spec_file);                                     
+    Argument<std::string>* rad_file = new Argument<std::string>("rad_file");  // input rad_file
+    rad_file->setRequired(false);
+    rad_file->setHelp("Input HDF5 spectrum data file.");
+    p->addArgument(rad_file);                                     
 
     // Simulated system parameters
     p->addArgument(new Argument<double>("m_primary", 0.8));
@@ -155,8 +145,21 @@ int main(int argc, char **argv) {
     Argument<std::string>* stepper = new Argument<std::string>("stepper", "fehlberg78");
     stepper->setHelp("ODE stepper method.");
     p->addArgument(stepper);
+}
 
-    // Command line args. parser
+int main(int argc, char **argv) {
+    // MPI init
+    int rank, size, n_workers; // mpi process rank, num of mpi processes
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    n_workers = size-1;
+
+    // create and init argParser
+    ArgumentParser* p = new ArgumentParser();
+    ArgumentParserInit(p);
+
+    // parse cli passed arguments
     if (!p->parse(argc, argv)) {
         if (rank == cs::mpi::MASTER) {
             std::cout << *p; // prints out help msg.

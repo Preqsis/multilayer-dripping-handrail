@@ -50,35 +50,35 @@ double Observation::filter_gauss(double**** data, std::vector<size_t> dim, doubl
 }
 
 // Function for "obs" MPI slave processes
-void Observation::slave(std::vector<size_t> dim_spec, std::vector<size_t> dim_obs, ArgumentParser* p) {
+void Observation::slave(std::vector<size_t> dim_rad, std::vector<size_t> dim_obs, ArgumentParser* p) {
     // MPI status flag holder
     MPI_Status status;
 
     // Comm length
-    size_t len_spec = dim_spec[0] * dim_spec[1] * dim_spec[2] * dim_spec[3];
+    size_t len_rad = dim_rad[0] * dim_rad[1] * dim_rad[2] * dim_rad[3];
     size_t len_obs = dim_obs[0];
 
     // Comms data allocation
-    double**** data_spec = fn::alloc_4D_double(dim_spec);
+    double**** data_rad = fn::alloc_4D_double(dim_rad);
     double* data_obs     = fn::alloc_1D_double(dim_obs);
 
     while (true) {
-        MPI_Recv(&data_spec[0][0][0][0], len_spec, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        MPI_Recv(&data_rad[0][0][0][0], len_rad, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
         if (status.MPI_TAG == cs::mpi::STOP) {break;}
 
-        data_obs[0] = filter_gauss(data_spec, dim_spec, 365.6e-7, 34.0e-7); // U
-        data_obs[1] = filter_gauss(data_spec, dim_spec, 435.3e-7, 78.1e-7); // B
-        data_obs[2] = filter_gauss(data_spec, dim_spec, 547.7e-7, 99.1e-7); // V
-        data_obs[3] = filter_gauss(data_spec, dim_spec, 634.9e-7, 106.56e-7); // R
-        //data_obs[3] = filter_gauss(data_spec, dim_spec, 634.9e-9, 106.56e-9); // I
+        data_obs[0] = filter_gauss(data_rad, dim_rad, 365.6e-7, 34.0e-7); // U
+        data_obs[1] = filter_gauss(data_rad, dim_rad, 435.3e-7, 78.1e-7); // B
+        data_obs[2] = filter_gauss(data_rad, dim_rad, 547.7e-7, 99.1e-7); // V
+        data_obs[3] = filter_gauss(data_rad, dim_rad, 634.9e-7, 106.56e-7); // R
+        //data_obs[3] = filter_gauss(data_rad, dim_rad, 634.9e-9, 106.56e-9); // I
 
         MPI_Send(&(data_obs[0]), len_obs, MPI_DOUBLE, 0, status.MPI_TAG, MPI_COMM_WORLD);
     }
 }
 
 // Function for "obs" MPI master process
-void Observation::master(std::vector<size_t> dim_spec, std::vector<size_t> dim_obs, int n_workers, ArgumentParser* p) {
+void Observation::master(std::vector<size_t> dim_rad, std::vector<size_t> dim_obs, int n_workers, ArgumentParser* p) {
     // MPI status flag holder
     MPI_Status status;
 
@@ -97,17 +97,17 @@ void Observation::master(std::vector<size_t> dim_spec, std::vector<size_t> dim_o
     // verbosity?
     bool v = p->b("verbose");
 
-    // input spec file / output obs file
-    std::string spec_fpath = (p->isSet("spec_file")) ? p->s("spec_file") : p->s("outdir") + "/spectrum.h5";
-    H5::File* spec_file = new H5::File(spec_fpath, H5::File::ReadOnly);
-    H5::File* obs_file = new H5::File(p->s("outdir") + "/observation.h5", H5::File::Overwrite);
+    // input rad file / output obs file
+    std::string rad_fpath = (p->isSet("rad_file")) ? p->s("rad_file") : p->s("outdir") + "/rad.h5";
+    H5::File* rad_file = new H5::File(rad_fpath, H5::File::ReadOnly);
+    H5::File* obs_file = new H5::File(p->s("outdir") + "/obs.h5", H5::File::Overwrite);
 
     // Comm length
-    size_t len_spec = dim_spec[0] * dim_spec[1] * dim_spec[2] * dim_spec[3];
+    size_t len_rad = dim_rad[0] * dim_rad[1] * dim_rad[2] * dim_rad[3];
     size_t len_obs = dim_obs[0];
 
     // Comms data allocation
-    double**** data_spec    = fn::alloc_4D_double(dim_spec);
+    double**** data_rad    = fn::alloc_4D_double(dim_rad);
     double* data_obs        = fn::alloc_1D_double(dim_obs);
     double** data           = fn::alloc_2D_double(dim_out);
 
@@ -116,13 +116,13 @@ void Observation::master(std::vector<size_t> dim_spec, std::vector<size_t> dim_o
         for (slave = 1; slave <= n_workers; slave++) {
             shift   = slave - 1;
             dkey    = "data_" + std::to_string(s + shift);
-            skip    = !spec_file->exist(dkey) || s + shift > step_last;
+            skip    = !rad_file->exist(dkey) || s + shift > step_last;
             
             if (!skip) {
-                spec_file->getDataSet(dkey).read((double****) data_spec[0][0][0]);
+                rad_file->getDataSet(dkey).read((double****) data_rad[0][0][0]);
             }
 
-            MPI_Send(&data_spec[0][0][0][0], len_spec, MPI_DOUBLE, slave, (skip) ? cs::mpi::SKIP : cs::mpi::COMPUTE, MPI_COMM_WORLD); 
+            MPI_Send(&data_rad[0][0][0][0], len_rad, MPI_DOUBLE, slave, (skip) ? cs::mpi::SKIP : cs::mpi::COMPUTE, MPI_COMM_WORLD); 
         }
 
         // in
@@ -161,9 +161,9 @@ void Observation::master(std::vector<size_t> dim_spec, std::vector<size_t> dim_o
     
     fn::writeDataSet(obs_file, data, dim_out, "data"); // initial state save
 
-    terminate(dim_spec, n_workers);
+    terminate(dim_rad, n_workers);
 
-    delete spec_file;
+    delete rad_file;
     delete obs_file;
 
     // info msg.
