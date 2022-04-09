@@ -15,7 +15,7 @@ namespace cs = Constants;
 #include "Radiation.hpp"
 #include "Observation.hpp"
 
-// simulation task
+// simulation task "branch"
 void sim(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions 
     size_t n_jobs               = p->i("idim") * p->i("jdim"); // number of jobs (cells)
@@ -29,7 +29,7 @@ void sim(int rank, int n_workers, ArgumentParser* p) {
     }
 }
 
-// radiation task
+// radiation task "branch"
 void rad(int rank, int n_workers, ArgumentParser* p) {
     // Comms dimensions
     std::vector<size_t> dim_mass = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
@@ -43,7 +43,7 @@ void rad(int rank, int n_workers, ArgumentParser* p) {
     }
 }
 
-// observation task
+// observation task "branch"
 void obs(int rank, int n_workers, ArgumentParser* p) {
     std::vector<size_t> dim_mass = {(size_t)p->i("idim"), (size_t)p->i("jdim"), 13};
 
@@ -138,8 +138,13 @@ void ArgumentParserInit(ArgumentParser* p) {
     p->addArgument(new Argument<double>("wl_high", 9e-5));
     p->addArgument(new Argument<double>("wl_step", 1e-7));
 
-    //
-    //p->addArgument(new Argument<double>("temp_atm", 1e5));     // atmosphere temperature
+    Argument<double>* temp_in = new Argument<double>("temp_in", 1e5); // central object temperature
+    temp_in->setHelp("Central object surface temperature.");
+    p->addArgument(temp_in);
+
+    Argument<double>* temp_atm = new Argument<double>("temp_atm", 1e5); // accretion disk atmosphere temperature
+    temp_in->setHelp("Acreetion disk atmosphere temperature.");
+    p->addArgument(temp_atm);
 
     // Simulation model ode stepper
     Argument<std::string>* stepper = new Argument<std::string>("stepper", "fehlberg78");

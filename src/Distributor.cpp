@@ -229,6 +229,7 @@ void Distributor::run(uint s) {
     }
 
     // temperature
+    /*
     double f = 1.0; // inner boundary effect??
     double ef = 1.0; // energy conversion efficiency aka. A'
     double A = ef * cs::G * _M * cs::m_sun / (8.0 * M_PI *std::pow(_r_in, 3.0) * cs::sigma * std::pow(_T_in, 4.0) * _dt);
@@ -243,12 +244,11 @@ void Distributor::run(uint s) {
             
             _grid[i][j][10] = _T_in * std::pow((1.0 + A * _grid[i][j][6] * _qs) / std::pow(_grid[i][j][7] / _r_in, 3.0), 0.25) * std::pow(f, 0.25);
 
-            /*
-            if (_grid[i][j][6] > 0.0) {
-                std::cout << " ---->> ";
-            }
-            std::cout << s << ", " << i << ", " << j << ", " << _grid[i][j][10] << ", " << _T_in << std::endl;
-            */
+            //if (_grid[i][j][6] > 0.0) {
+            //    std::cout << " ---->> ";
+            //}
+            //std::cout << s << ", " << i << ", " << j << ", " << _grid[i][j][10] << ", " << _T_in << std::endl;
         }
     }
+    */
 }

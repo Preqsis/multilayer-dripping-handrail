@@ -58,15 +58,20 @@ void Radiation::slave(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad, 
         }
     }
 
-    double dR = (p->d("r_out") - p->d("r_in")) / dim_sim[0];
-    double* r = new double[dim_sim[0]+1];
-    for (size_t i=0; i <= dim_sim[0]; i++) {
-        r[i] = p->d("r_out") - i * dR;
-    }
+    double r_in = p->d("r_in");
+    double r_out = p->d("r_out");
+
+    double dR = (r_out - r_in) / dim_sim[0];
     
-    double wl, T, frq, S, A, E;
+    double wl, T, frq, S, A, E, T_a;
     double q = p->d("q");
     double Q = p->d("Q");
+
+    double T_in = p->d("temp_in"); // central object temperature
+    double T_atm = p->d("temp_atm"); // acreetion disk atmosphere temperature
+
+    double r, B, T_r, E_r, L_a;
+
     while (true) {
         MPI_Recv(&data_sim[0][0][0], len_mass, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
@@ -74,25 +79,57 @@ void Radiation::slave(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad, 
 
         if (status.MPI_TAG == cs::mpi::COMPUTE) {
             for (size_t i = 0; i < dim_rad[0]; i++) {          // pres vsechny prstence
-                S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_sim[1];
-                A   = 0.5 * cs::G * cs::m_sun * p->d("m_primary") * dR * Q / q;
-                
+                r = data_sim[i][0][7]; // ring radius
+
+
+                //S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_sim[1];
+                // Plocha prstence
+                // ... jedna strana
+                S = 2.0 * M_PI * r * dR / dim_sim[1];
+
+                T_r = T_in * pow(r / r_in ,-0.75); // radius dependent disk body temperature
+
+                //std::cout << i << " -- " << T_r << std::endl;
+
+                //A   = 0.5 * cs::G * cs::m_sun * p->d("m_primary") * dR * Q / q;
+                A   = 0.5 * cs::G * cs::m_sun * p->d("m_primary") * dR;
+
                 for (size_t j = 0; j < dim_rad[1]; j++) {      // pres vsechny bunky v prstenci
                     for (size_t k = 0; k < dim_rad[2]; k++) {  // pres rozsah vl. delek
+
                         // vlnova delka -> frekvence
                         wl  = data_rad[i][j][k][0];
                         frq = cs::c / wl;
-                        T   = data_sim[i][j][10];
                         
+                        /**
+                         * Direct Radiation 
+                         * - free-free emission
+                         * - 
+                         */
+
+                        E_r = A * data_sim[i][j][9] / std::pow(r, 2.0); // energine ztracena drainem
+
+                        L_a = 4.9e-11 * (E_r / T_atm) * std::exp(-1.0 * cs::h * frq/ (cs::k * T_atm)); // zareni z drainu -> flickering
+
+                        B = planck(wl, T_r);
+                        
+                        //data_rad[i][j][k][1] = /*2 * S * B +*/ L_a;
+                        data_rad[i][j][k][1] = B;
+
+                        
+                        // Re-radiation
+                        // on data index ...2
+
+
                         // "tepelne" razeni
-                        data_rad[i][j][k][1]   = 2.0 * S * planck(wl, T); // vln. delka, teplota
+                        //data_rad[i][j][k][1]   = 2.0 * S * planck(wl, T); // vln. delka, teplota
 
                         // flickering vlivem ztraty energie
-                        E                       = A * data_sim[i][j][9] / (r[i] * r[i+1]); // energine ztracena drainem
+                        //E                       = A * data_sim[i][j][9] / (r[i] * r[i+1]); // energine ztracena drainem
                         //if (data_sim[i][j][9] > 0.0) {
                         //    std::cout << A << ", " << E << std::endl; 
                         //}
-                        data_rad[i][j][k][2]   = 4.9e-11 * (E / T) * std::exp(-1.0 * cs::h * frq/ (cs::k * T)); // zareni z drainu -> flickering
+                        //data_rad[i][j][k][2]   = 4.9e-11 * (E / T) * std::exp(-1.0 * cs::h * frq/ (cs::k * T)); // zareni z drainu -> flickering
                     }
                 }
             }

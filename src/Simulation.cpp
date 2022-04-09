@@ -34,7 +34,9 @@ bool Simulation::writable(bool wf, bool wl, uint s, uint sf, uint sl) {
 void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentParser* p) {
     double r_in     = p->d("r_in");
     double r_out    = p->d("r_out");
-    double T_in     = std::pow((3.0 * cs::G * p->d("m_primary") * cs::m_sun * 1e17 / (8.0 * M_PI * cs::k * std::pow(r_in, 3.0))), 0.25);
+    //double T_in     = std::pow((3.0 * cs::G * p->d("m_primary") * cs::m_sun * 1e17 / (8.0 * M_PI * cs::k * std::pow(r_in, 3.0))), 0.25);
+    double T_in     = p->d("temp_in");
+
     for (uint i=0; i< dim[0]; i++) { // rings
         for (uint j=0; j<dim[1]; j++){ // cells
             data[i][j][0]   = i; // ring coordinate
@@ -47,7 +49,7 @@ void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentPars
             data[i][j][7]   = r_out - i * (r_out - r_in) / ((double) dim[0]); // cell specific radius
             data[i][j][8]   = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
             data[i][j][9]   = 0.0; // drain
-            data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // 'default' temperature
+            data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // radius dependent disk body temperature
             data[i][j][11]  = std::pow(r_out, 2.0) / std::pow(((double)dim[0] - i - 1) * (r_out - r_in) / ((double)dim[0] - 1) , 2.0); // local 'g'
             //data[i][j][11]  = 1.0; // local 'g'
             data[i][j][12]  = 1.0; // compute flag (0.0 --> do not compute)
