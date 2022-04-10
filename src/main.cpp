@@ -131,7 +131,7 @@ void ArgumentParserInit(ArgumentParser* p) {
 
     // inner / outer mass influx
     p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
-    p->addArgument(new Argument<double>("q", 0.5));         // local model mass influx
+    p->addArgument(new Argument<double>("q", 1.0));         // local model mass influx
 
     // Radiation wavelength specification (range, step)
     p->addArgument(new Argument<double>("wl_low", 2e-5));

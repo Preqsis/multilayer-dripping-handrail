@@ -18,6 +18,7 @@ private:
     double _r_out;
     double _Q;
     double _dt;
+    double _dr;
     double _T_in;
         
     double _q;
