@@ -15,7 +15,6 @@ import multiprocessing as mp
 from Render import *
 
 def worker(sim_file, obs_file, output, frames, w, h, i, lcdepth=200, frange=(0, 100), mlimit=16.) -> None:
-
     with h5py.File(sim_file, "r") as f_sim, h5py.File(obs_file, "r") as f_obs:
         idim, jdim = f_sim.attrs["idim"], f_sim.attrs["jdim"]
 
