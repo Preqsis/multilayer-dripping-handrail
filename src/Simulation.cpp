@@ -140,8 +140,8 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     double m_primary, r_in, r_out; // system params
     // from CLAs to easilly accesible vars
     m_primary       = p->d("m_primary") * cs::m_sun;
-    r_in            = p->d("r_in");
-    r_out           = p->d("r_out");
+    r_in            = p->d("r_in") * cs::r_sun;
+    r_out           = p->d("r_out") * cs::r_sun;
     
     // MPI status flag holder
     MPI_Status status;

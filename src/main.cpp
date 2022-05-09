@@ -125,13 +125,13 @@ void ArgumentParserInit(ArgumentParser* p) {
     p->addArgument(rad_file);                                     
 
     // Simulated system parameters
-    p->addArgument(new Argument<double>("m_primary", 0.8));
-    p->addArgument(new Argument<double>("r_in", 5e8));
-    p->addArgument(new Argument<double>("r_out", 50.0 * 5e8));
+    p->addArgument(new Argument<double>("m_primary", 0.6));
+    p->addArgument(new Argument<double>("r_in", 0.01));
+    p->addArgument(new Argument<double>("r_out", 2.0));
 
     // inner / outer mass influx
     p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
-    p->addArgument(new Argument<double>("q", 1.0));         // local model mass influx
+    p->addArgument(new Argument<double>("q", 0.5));         // local model mass influx
 
     // Radiation wavelength specification (range, step)
     p->addArgument(new Argument<double>("wl_low", 2e-5));

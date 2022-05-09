@@ -30,22 +30,11 @@ double Observation::filter_gauss(double**** data, std::vector<size_t> dim, doubl
     for (int i=0; i<dim[0]; i++) {
         for (int j=0; j<dim[1]; j++) {
             for (int k=0; k<dim[2]; k++) {
-
-                //std::cout << data[i][j][k][1] * std::exp(-0.5 * pow((data[i][j][k][0] - mu) * 2.355 / fwhm, 2.0)) << std::endl;
-
-                val += data[i][j][k][1] * std::exp(-0.5 * pow((data[i][j][k][0] - mu) * 2.355 / fwhm, 2.0));
-
-
-                //if (isnan(val)) {
-                //    std::cout << data[i][j][k][0] << ", " << data[i][j][k][1] << ", " << std::exp(-0.5 * pow((data[i][j][k][0] - mu) * 2.355 / fwhm, 2.0)) << std::endl;
-                //    return val;
-                //}
+                //val += data[i][j][k][1] * std::exp(-0.5 * pow((data[i][j][k][0] - mu) * 2.355 / fwhm, 2.0));
+                val += data[i][j][k][1] * std::exp(-0.5 * pow((data[i][j][k][0] - mu) / fwhm, 2.0));
             }
         }
     }
-
-    //std::cout << isnan(val) << std::endl;
-
     return val;
 }
 

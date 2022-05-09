@@ -103,7 +103,7 @@ void Distributor::setInflux(double q) {
 double Distributor::getRandW() {
     std::random_device dev;
     std::default_random_engine engine(dev());
-    std::uniform_real_distribution<double> dist(0.0, 0.3);
+    std::uniform_real_distribution<double> dist(0.1, 0.3);
     return dist(engine);
 }
 

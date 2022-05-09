@@ -23,6 +23,9 @@ namespace Constants {
     
     // Sun mass
     const double m_sun  = 1.9891e33; // g
+
+    // Sun radius
+    const double r_sun  = 69634000000; // cm
     
     // Gravitational constant
     const double G      = 6.67259e-8; // cm^3 * g^-1 * s^-2
