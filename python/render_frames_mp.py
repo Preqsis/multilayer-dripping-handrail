@@ -25,12 +25,12 @@ def worker(sim_file, obs_file, output, frames, w, h, i, lcdepth=200, frange=(0, 
         lc_ylim = (y_min - (y_max - y_min) * 0.1, y_max + (y_max - y_min) * 0.1)
 
         for frame in frames:
-            dkey = f"data_{frame}"
+            dkey = f"d{frame}"
             print(i, dkey)
 
             m = (data_obs[:,0] <= frame) & (data_obs[:,0] > frame - lcdepth)
 
-            img = render_frame(f_sim[dkey][()], data_obs[m], idim, jdim, dt, w=w, h=h, lcdepth=lcdepth, lc_ylim=lc_ylim, mlimit=mlimit)
+            img = render_frame(f_sim[dkey][()], data_obs[m], idim, jdim, dt, w=w, h=h, lcdepth=lcdepth, lc_ylim=lc_ylim)
             img.save(f"{output}/frame_{frame:06}.png")
 
 if __name__ == "__main__":

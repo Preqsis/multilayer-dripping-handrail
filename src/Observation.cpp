@@ -77,7 +77,7 @@ void Observation::master(std::vector<size_t> dim_rad, std::vector<size_t> dim_ob
     int shift;
     int step_first  = p->i("step_first");
     int s           = step_first;
-    int step_last   = p->i("step_last");
+    int step_last   = p->i("step_last") > 0 ? p->i("step_last") : p->i("n")-1;
     int one_percent = (step_last - step_first) / 100;
     
     std::vector<size_t> dim_out = {step_last - step_first + 1, dim_obs[0]+1};
@@ -104,7 +104,7 @@ void Observation::master(std::vector<size_t> dim_rad, std::vector<size_t> dim_ob
         // out
         for (slave = 1; slave <= n_workers; slave++) {
             shift   = slave - 1;
-            dkey    = "data_" + std::to_string(s + shift);
+            dkey    = "d" + std::to_string(s + shift);
             skip    = !rad_file->exist(dkey) || s + shift > step_last;
             
             if (!skip) {
@@ -117,20 +117,19 @@ void Observation::master(std::vector<size_t> dim_rad, std::vector<size_t> dim_ob
         // in
         for (slave = 1; slave <= n_workers; slave++) {
             shift   = slave - 1;
-            dkey    = "data_" + std::to_string(s + shift);
+            dkey    = "d" + std::to_string(s + shift);
 
             MPI_Recv(&data_obs[0], len_obs, MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
             if (status.MPI_TAG == cs::mpi::COMPUTE) {
                 data[i+shift][0] = s+shift;
-                data[i+shift][1] = data_obs[0];
-                data[i+shift][2] = data_obs[1];
-                data[i+shift][3] = data_obs[2];
-                data[i+shift][4] = data_obs[3];
-                data[i+shift][5] = data_obs[4];
+                data[i+shift][1] = data_obs[0]; // U
+                data[i+shift][2] = data_obs[1]; // B
+                data[i+shift][3] = data_obs[2]; // V
+                data[i+shift][4] = data_obs[3]; // R
+                data[i+shift][5] = data_obs[4]; // I
             }
         }
-
 
         // info msg.
         if (v) {
@@ -144,10 +143,6 @@ void Observation::master(std::vector<size_t> dim_rad, std::vector<size_t> dim_ob
         if (s > step_last) {break;}
     }
 
-    //for (i=0; i<dim_out[0]; i++) {
-    //    std::cout << data[i][0] << ", " << data[i][1] << ", " << data[i][2] << ", " << data[i][3] << std::endl;
-    //}
-    
     fn::writeDataSet(obs_file, data, dim_out, "data"); // initial state save
 
     terminate(dim_rad, n_workers);

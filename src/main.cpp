@@ -83,7 +83,7 @@ void ArgumentParserInit(ArgumentParser* p) {
     // Number of sim steps
     p->addArgument(new Argument<int>("n", 5e5, "Number of simulation steps.")); // number of simulation steps
     p->addArgument(new Argument<int>("step_first", 0)); // first step in range
-    p->addArgument(new Argument<int>("step_last", 99)); // last step in range
+    p->addArgument(new Argument<int>("step_last", 0)); // last step in range
 
     // Specify steps range to save
     Argument<int>* save_start = new Argument<int>("save_start");
@@ -130,21 +130,17 @@ void ArgumentParserInit(ArgumentParser* p) {
     p->addArgument(new Argument<double>("r_out", 2.0));
 
     // inner / outer mass influx
-    p->addArgument(new Argument<double>("Q", 1e17));        // global disc mass influx
-    p->addArgument(new Argument<double>("q", 0.5));         // local model mass influx
+    p->addArgument(new Argument<double>("Q", 1e14));        // global disc mass influx
+    p->addArgument(new Argument<double>("q", 0.9));         // local model mass influx
 
     // Radiation wavelength specification (range, step)
     p->addArgument(new Argument<double>("wl_low", 2e-5));
     p->addArgument(new Argument<double>("wl_high", 9e-5));
     p->addArgument(new Argument<double>("wl_step", 1e-7));
 
-    Argument<double>* temp_in = new Argument<double>("temp_in", 1e5); // central object temperature
-    temp_in->setHelp("Central object surface temperature.");
-    p->addArgument(temp_in);
-
-    Argument<double>* temp_atm = new Argument<double>("temp_atm", 1e5); // accretion disk atmosphere temperature
-    temp_in->setHelp("Acreetion disk atmosphere temperature.");
-    p->addArgument(temp_atm);
+    Argument<double>* T_flow = new Argument<double>("T_flow", 4500); // central object temperature
+    T_flow->setHelp("Influx temperature.");
+    p->addArgument(T_flow);
 
     // Simulation model ode stepper
     Argument<std::string>* stepper = new Argument<std::string>("stepper", "fehlberg78");

@@ -19,7 +19,7 @@ private:
     double _Q;
     double _dt;
     double _dr;
-    double _T_in;
+    double _T_flow;
         
     double _q;
     double _zc;
@@ -42,9 +42,11 @@ public:
 
     void setRotationProfile(std::vector<double> profile);
 
-    void setParams(double M, double r_in, double r_out, double Q, double q);
+    void setParams(double M, double r_in, double r_out, double Q, double q, double T_flow);
 
     double get_dt();
+
+    double get_qs();
 
     void setBlobSchedule(std::string blob_file);
 
@@ -53,6 +55,8 @@ public:
     void setInflux(double q);
 
     double getRandW();
+    
+    double getMixedTemp(double T1, double T2, double m1, double m2);
 
     void runBlobs(uint steps);
 

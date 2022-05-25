@@ -10,22 +10,25 @@ import matplotlib.cm as cm
 from io import BytesIO, StringIO
 import PIL
 
-def zscale_linear(val, mlimit):
-    return val / mlimit
+def zscale_linear(val, val_range):
+    return val / val_range[1]
 
-def zscale_exponential(val, mlimit):
-    return 1 / (1 - np.exp(val / mlimit))
+def zscale_exponential(val, limit):
+    return 1 / (1 - np.exp(val / limit))
 
-def zscale_log(val, mlimit):
-    return np.log(val - 1.0) / mlimit
+def zscale_log(val, val_range):
+    return np.log10(val - val_range[0]) / np.log10(val_range[1] - val_range[0])
 
-
-def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., bg_rgb=(0, 0, 0), return_surface=False):
-
+def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, 
+        val_index=5, val_range=(0., 16.), bg_rgb=(0, 0, 0), 
+        return_surface=False, skip_empty=False, log_norm=False,
+        scf=1.0
+        ):
     #colormap = mcol.LinearSegmentedColormap.from_list("custom", ["black", "blue", "yellow", "red"])
     #colormap = plt.cm.get_cmap("magma" if cmap is None else cmap)
     colormap = plt.cm.get_cmap("inferno" if cmap is None else cmap)
-    
+
+    val_range = (val_range[0]*scf, val_range[1]*scf)
 
     dr = (r_out - r_in) / idim
 
@@ -49,10 +52,13 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
         for j in range(jdim):
             #k = i * jdim + j
 
-            m, azm = data[i][j][5], data[i][j][8] % (2. * np.pi)
+            # value_index == 5 --> mass
+            val, azm = data[i][j][val_index] * scf, data[i][j][8] % (2. * np.pi)
 
-            #print(zscale_log(m, mlimit))
-            rgba = colormap(zscale_linear(m, mlimit))
+            if val == 0. and skip_empty:
+                continue
+
+            rgba = colormap(zscale_linear(val, val_range) if not log_norm else zscale_log(val, val_range))
 
             c.arc(0.495, 0.5, r, azm, azm+dphi*1.02)
             c.set_source_rgb(rgba[0], rgba[1], rgba[2])  # Solid color
@@ -60,13 +66,13 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
 
         r -= dr
 
-    c.set_line_width(dr * 0.2)
+    c.set_line_width(dr * 0.15)
     c.arc(0.495, 0.5, r_out + 0.6 * dr, 0., 2. * np.pi)
-    c.set_source_rgb(255, 255, 255)
+    c.set_source_rgb(0, 0, 0)
     c.stroke()
 
     c.arc(0.495, 0.5, r_in + 0.4 * dr, 0., 2. * np.pi)
-    c.set_source_rgb(255, 255, 255)
+    c.set_source_rgb(0, 0, 0)
     c.stroke()
 
     if return_surface:
@@ -81,8 +87,14 @@ def render_disc(data, idim, jdim, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.4
 
     return imdata
 
-def render_frame(data_disc, data_obs, idim, jdim, dt, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, mlimit=16., dpi=150, lc_ylim=(0., 1.), lcdepth=200):
+def render_frame(data_disc, data_obs, idim, jdim, dt, w=1920, h=1080, cmap=None, r_in=0.1, r_out=0.45, 
+        val_index=5, val_range=(0., 16.), bg_rgb=(0, 0, 0), 
+        return_surface=False, skip_empty=False, log_norm=False,
+        scf=1.0, lcdepth=200, lc_ylim=None, dpi=150
+        ):
     fig, axes = plt.subplots(nrows=2, ncols=1)
+
+    print(idim, jdim)
 
     fig.set_size_inches(885 / dpi, h / dpi)
     fig.set_dpi(dpi)
@@ -110,7 +122,7 @@ def render_frame(data_disc, data_obs, idim, jdim, dt, w=1920, h=1080, cmap=None,
 
     plt.close()
 
-    disc_surface = render_disc(data_disc, idim, jdim, r_in=r_in, r_out=r_out, w=w, h=h, return_surface=True, mlimit=mlimit)
+    disc_surface = render_disc(data_disc, idim, jdim, r_in=r_in, r_out=r_out, w=w, h=h, return_surface=True)
 
     buff = BytesIO()
     disc_surface.write_to_png(buff)

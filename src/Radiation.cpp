@@ -97,7 +97,7 @@ void Radiation::master(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad,
     int shift;
     int step_first  = p->i("step_first");
     int s           = step_first;
-    int step_last   = p->i("step_last");
+    int step_last   = p->i("step_last") > 0 ? p->i("step_last") : step_first + p->i("n");
     int one_percent = (step_last - step_first) / 100;
 
     // verbosity?
@@ -120,7 +120,7 @@ void Radiation::master(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad,
         // out
         for (slave = 1; slave <= n_workers; slave++) {
             shift   = slave - 1;
-            dkey    = "data_" + std::to_string(s + shift);
+            dkey    = "d" + std::to_string(s + shift);
             skip    = !sim_file->exist(dkey) || s + shift > step_last;
 
             if (!skip) {
@@ -133,7 +133,7 @@ void Radiation::master(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad,
         // in
         for (slave = 1; slave <= n_workers; slave++) {
             shift   = slave - 1;
-            dkey    = "data_" + std::to_string(s + shift);
+            dkey    = "d" + std::to_string(s + shift);
 
             MPI_Recv(&data_rad[0][0][0][0], len_spec, MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
