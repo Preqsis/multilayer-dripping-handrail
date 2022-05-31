@@ -36,19 +36,24 @@ void Distributor::setRotationProfile(std::vector<double> profile) {
     _rProfile = profile;
 }
 
-void Distributor::setParams(double M, double r_in, double r_out, double Q, double q) {
+void Distributor::setParams(double M, double r_in, double r_out, double Q, double q, double T_flow) {
     _M      = M;
     _r_in   = r_in;
     _r_out  = r_out;
     _Q      = Q;
     _q      = q;
-    _dt     = 2.0 * M_PI * std::sqrt(std::pow(_r_out, 3.0) / cs::G / _M / cs::m_sun);
+    _dt     = 2.0 * M_PI * std::sqrt(std::pow(_r_out, 3.0) / cs::G / _M) / _dim[1];
     _qs     = _Q * _dt / _q;
-    _T_in   = std::pow((3.0 * cs::G * cs::m_sun * _M * _Q) / (8.0 * M_PI * cs::sigma * std::pow(_r_in, 3.0)), 0.25);
+    _dr     = (r_out - r_in) / (double) _dim[1];
+    _T_flow = T_flow;
 }
 
 double Distributor::get_dt() {
     return _dt;
+}
+
+double Distributor::get_qs() {
+    return _qs;
 }
 
 void Distributor::setBlobSchedule(std::string blob_file) {
@@ -89,21 +94,27 @@ void Distributor::addBlob(BlobData* b) {
             if (l > b->r) {
                 continue;
             }
-            _grid[i][j][5] += (b->m / (0.8 * l));
-            _grid[i][j][6] += (b->m / (0.8 * l));
+
+            _grid[i][j][5] += (b->m / (0.8 * (l < 2 ? 2 : l)));
+            _grid[i][j][6] += (b->m / (0.8 * (l < 2 ? 2 : l)));
+            _grid[i][j][10] = getMixedTemp(_grid[i][j][10], _T_flow, _grid[i][j][5], b->m);
         }
     }
 }
 
 void Distributor::setInflux(double q) {
-    _q = q;
+
 }
 
 double Distributor::getRandW() {
     std::random_device dev;
     std::default_random_engine engine(dev());
-    std::uniform_real_distribution<double> dist(0.0, 0.3);
+    std::uniform_real_distribution<double> dist(0.1, 0.3);
     return dist(engine);
+}
+
+double Distributor::getMixedTemp(double T1, double T2, double m1, double m2) {
+    return (m1 * T1 + m2 * T2) / (m1 + m2);
 }
 
 void Distributor::runBlobs(uint step) {
@@ -119,6 +130,19 @@ void Distributor::run(uint s) {
     double mb, w, dp, j_in, part_left, part_right;
     uint i, j, j_right, j_left, idx;
 
+    // chalzeni absolutne cerneho telesa
+    double S, n;
+    for (i = 0; i < _dim[0]; i++) {
+        S = 2.0 * M_PI * _grid[i][0][7] * _dr / _dim[1];  
+        for (j = 0; j < _dim[1]; j++) {
+            if (_grid[i][j][5] <= 0.0) {
+                continue;
+            }
+            n = _grid[i][j][5] * _qs / cs::M_h;
+            _grid[i][j][10] = 1.0 / std::pow(((2.0 * cs::sigma * S * _dt) / (n * cs::R) + 1.0 / std::pow(_grid[i][j][10], 3.0) ), 1.0/3.0);
+        }
+    }
+
     // rotace vnejsiho prstence o "jeden pohyb"
     // zabranuje driftovani vliven nepresnosti datovych typu
     std::vector<double> tmp;
@@ -129,6 +153,7 @@ void Distributor::run(uint s) {
     for (j = 0; j < _dim[1]; j++) {
         _grid[0][j][8] = tmp[j];
         _grid[0][j][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
+        _grid[0][j][9] = 0.0; 
     }
 
     // rotace ostatnich podle profilu
@@ -136,6 +161,8 @@ void Distributor::run(uint s) {
         for (j = 0; j < _dim[1]; j++) {
             _grid[i][j][8] = std::fmod(_grid[i][j][8] + _rProfile[i], 2.0 * M_PI);
             _grid[i][j][6] = 0; // dm u vsech vynulovat, uvazujeme pohyb casti nikoliv tok mezi nimi
+
+            _grid[i][j][9] = 0.0; 
         }
     }
 
@@ -147,6 +174,11 @@ void Distributor::run(uint s) {
             break;
         }
     }
+    
+    // teplota v pritokove bunce
+    _grid[0][idx][10] = (_grid[0][idx][5] * _grid[0][idx][10] + _q * _T_flow) / (_grid[0][idx][5] + _q);
+
+    // hmota v pritokove bunce
     _grid[0][idx][5] += _q;
     _grid[0][idx][6] = _q; // u pritokove bunky presne odpovida _q, zbytek 0
 
@@ -157,7 +189,6 @@ void Distributor::run(uint s) {
 
             for (j = 0; j < _dim[1]; j++) {
                 if (_grid[i][j][3] < _zc) { // k odtreni nedochazi
-                    _grid[i][j][9] = 0.0; 
                     continue;
                 }
 
@@ -174,9 +205,15 @@ void Distributor::run(uint s) {
                 // odtrzena hmotnost
                 w                       = getRandW();
                 mb                      = _grid[i][j][5] * (0.8 - w);
+                if (mb <= 1e-8) { // jaky limit presne? !!!!!!!!!
+                    mb                  = _grid[i][j][5];
+                    _grid[i][j][5]      = 0.0;
+                    _grid[i][j][10]     = 0.0;
+                } else {
+                    _grid[i][j][5]      -= mb; // m
+                }
                 
                 // odebrat od zdrojove bunky
-                _grid[i][j][5]          -= mb; // m
 
                 // DORESIT !!! --> co se zapornym dm???
                 //_grid[i][j][6]          -= mb; // dm 
@@ -186,29 +223,47 @@ void Distributor::run(uint s) {
                 
                 // reset vychyleni zdrojove bunky
                 _grid[i][j][3]          = 2.0;
+                
+                // temperature change by mixing
+                //_grid[i+1][j_left][10] = (_grid[i+1][j_left][5] * _grid[i+1][j_left][10] + part_left * mb * _grid[i][j][10]) / (_grid[i+1][j_left][5] + part_left * mb);
+                //_grid[i+1][j_right][10] = (_grid[i+1][j_right][5] * _grid[i+1][j_right][10] + part_right * mb * _grid[i][j][10]) / (_grid[i+1][j_right][5] + part_right * mb);
 
+                _grid[i+1][j_left][10] = getMixedTemp(_grid[i][j][10], _grid[i+1][j_left][10], part_left * mb, _grid[i+1][j_left][5]);
+                _grid[i+1][j_right][10] = getMixedTemp(_grid[i][j][10], _grid[i+1][j_right][10], part_right * mb, _grid[i+1][j_right][5]);
+
+
+                // total cell mass
                 _grid[i+1][j_left][5] += part_left * mb; // m
-                _grid[i+1][j_left][6] = part_left * mb; // dm
-
                 _grid[i+1][j_right][5] += part_right * mb; // m
-                _grid[i+1][j_right][6] = part_right * mb; // dm
+
+                // cell mass change
+                _grid[i+1][j_left][6] += part_left * mb; // dm
+                _grid[i+1][j_right][6] += part_right * mb; // dm
 
                 // hmotu na drain
                 _grid[i][j][9] = mb;
+                //_grid[i+1][j_left][9] += part_left * mb; // drain
+                //_grid[i+1][j_right][9] += part_right * mb; // drain
             }
         } else {
             for (j = 0; j < _dim[1]; j++) {
                 if (_grid[i][j][3] < _zc) { // k odtreni nedochazi
-                    _grid[i][j][9] = 0.0; 
                     continue;
                 }
 
                 // odtrzena hmotnost
                 w               = getRandW();
                 mb              = _grid[i][j][5] * (0.8 - w);
+                if (mb <= 1e-8) {
+                    mb                  = _grid[i][j][5];
+                    _grid[i][j][5]      = 0.0;
+                    _grid[i][j][10]     = 0.0;
+                } else {
+                    _grid[i][j][5]      -= mb; // m
+                }
 
                 // odebrat od zdrojove bunky
-                _grid[i][j][5]  -= mb;
+                //_grid[i][j][5]  -= mb;
                 //_grid[i][j][6]  -= mb;
 
                 // 'vynulovat' rychlost zdrojove bunky
@@ -228,27 +283,14 @@ void Distributor::run(uint s) {
         runBlobs(s);
     }
 
-    // temperature
-    /*
-    double f = 1.0; // inner boundary effect??
-    double ef = 1.0; // energy conversion efficiency aka. A'
-    double A = ef * cs::G * _M * cs::m_sun / (8.0 * M_PI *std::pow(_r_in, 3.0) * cs::sigma * std::pow(_T_in, 4.0) * _dt);
-    double temp;
+    // free-free emission heating
+    double A = 1.0; // heating efficiency
+    double K = A * cs::G * _M * _dr * cs::M_h / (3.0 * cs::R); // constant part of the equation
     for (i = 0; i < _dim[0]; i++) {
         for (j = 0; j < _dim[1]; j++) {
-            
-            //temp = _T_in * std::pow((1.0 + A * _grid[i][j][6] * _qs) / std::pow(_grid[i][j][7] / _r_in, 3.0), 0.25) * std::pow(f, 0.25);
-            //if (!isnan(temp) && _grid[i][j][6] < 0.0) {
-            //    std::cout << i << ", " << j << ", " << _grid[i][j][6] << std::endl;
-            //}
-            
-            _grid[i][j][10] = _T_in * std::pow((1.0 + A * _grid[i][j][6] * _qs) / std::pow(_grid[i][j][7] / _r_in, 3.0), 0.25) * std::pow(f, 0.25);
-
-            //if (_grid[i][j][6] > 0.0) {
-            //    std::cout << " ---->> ";
-            //}
-            //std::cout << s << ", " << i << ", " << j << ", " << _grid[i][j][10] << ", " << _T_in << std::endl;
+            if (_grid[i][j][5] > 0.0) {
+                _grid[i][j][10] +=  K * _grid[i][j][9] / (std::pow(_grid[i][j][7], 2.0) * _grid[i][j][5]);
+            }
         }
     }
-    */
 }

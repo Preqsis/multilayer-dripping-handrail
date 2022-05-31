@@ -58,78 +58,26 @@ void Radiation::slave(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad, 
         }
     }
 
-    double r_in = p->d("r_in");
-    double r_out = p->d("r_out");
-
-    double dR = (r_out - r_in) / dim_sim[0];
-    
-    double wl, T, frq, S, A, E, T_a;
-    double q = p->d("q");
-    double Q = p->d("Q");
-
-    double T_in = p->d("temp_in"); // central object temperature
-    double T_atm = p->d("temp_atm"); // acreetion disk atmosphere temperature
-
-    double r, B, T_r, E_r, L_a;
+    double wl, frq, r, S;
+    double r_in     = p->d("r_in");
+    double r_out    = p->d("r_out");
+    double dR       = (r_out - r_in) / dim_sim[0];
 
     while (true) {
         MPI_Recv(&data_sim[0][0][0], len_mass, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-
+        
         if (status.MPI_TAG == cs::mpi::STOP) {break;}
-
+        
         if (status.MPI_TAG == cs::mpi::COMPUTE) {
             for (size_t i = 0; i < dim_rad[0]; i++) {          // pres vsechny prstence
                 r = data_sim[i][0][7]; // ring radius
-
-
-                //S   = M_PI * (pow(r[i], 2.0) - pow(r[i+1], 2.0)) / dim_sim[1];
-                // Plocha prstence
-                // ... jedna strana
                 S = 2.0 * M_PI * r * dR / dim_sim[1];
-
-                T_r = T_in * pow(r / r_in ,-0.75); // radius dependent disk body temperature
-
-                //std::cout << i << " -- " << T_r << std::endl;
-
-                //A   = 0.5 * cs::G * cs::m_sun * p->d("m_primary") * dR * Q / q;
-                A   = 0.5 * cs::G * cs::m_sun * p->d("m_primary") * dR;
 
                 for (size_t j = 0; j < dim_rad[1]; j++) {      // pres vsechny bunky v prstenci
                     for (size_t k = 0; k < dim_rad[2]; k++) {  // pres rozsah vl. delek
-
-                        // vlnova delka -> frekvence
                         wl  = data_rad[i][j][k][0];
                         frq = cs::c / wl;
-                        
-                        /**
-                         * Direct Radiation 
-                         * - free-free emission
-                         * - 
-                         */
-
-                        E_r = A * data_sim[i][j][9] / std::pow(r, 2.0); // energine ztracena drainem
-
-                        L_a = 4.9e-11 * (E_r / T_atm) * std::exp(-1.0 * cs::h * frq/ (cs::k * T_atm)); // zareni z drainu -> flickering
-
-                        B = planck(wl, T_r);
-                        
-                        //data_rad[i][j][k][1] = /*2 * S * B +*/ L_a;
-                        data_rad[i][j][k][1] = B;
-
-                        
-                        // Re-radiation
-                        // on data index ...2
-
-
-                        // "tepelne" razeni
-                        //data_rad[i][j][k][1]   = 2.0 * S * planck(wl, T); // vln. delka, teplota
-
-                        // flickering vlivem ztraty energie
-                        //E                       = A * data_sim[i][j][9] / (r[i] * r[i+1]); // energine ztracena drainem
-                        //if (data_sim[i][j][9] > 0.0) {
-                        //    std::cout << A << ", " << E << std::endl; 
-                        //}
-                        //data_rad[i][j][k][2]   = 4.9e-11 * (E / T) * std::exp(-1.0 * cs::h * frq/ (cs::k * T)); // zareni z drainu -> flickering
+                        data_rad[i][j][k][1] = 2.0 * S * planck(wl, data_sim[i][j][10]);
                     }
                 }
             }
@@ -149,7 +97,7 @@ void Radiation::master(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad,
     int shift;
     int step_first  = p->i("step_first");
     int s           = step_first;
-    int step_last   = p->i("step_last");
+    int step_last   = p->i("step_last") > 0 ? p->i("step_last") : step_first + p->i("n");
     int one_percent = (step_last - step_first) / 100;
 
     // verbosity?
@@ -172,7 +120,7 @@ void Radiation::master(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad,
         // out
         for (slave = 1; slave <= n_workers; slave++) {
             shift   = slave - 1;
-            dkey    = "data_" + std::to_string(s + shift);
+            dkey    = "d" + std::to_string(s + shift);
             skip    = !sim_file->exist(dkey) || s + shift > step_last;
 
             if (!skip) {
@@ -185,7 +133,7 @@ void Radiation::master(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad,
         // in
         for (slave = 1; slave <= n_workers; slave++) {
             shift   = slave - 1;
-            dkey    = "data_" + std::to_string(s + shift);
+            dkey    = "d" + std::to_string(s + shift);
 
             MPI_Recv(&data_rad[0][0][0][0], len_spec, MPI_DOUBLE, slave, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 

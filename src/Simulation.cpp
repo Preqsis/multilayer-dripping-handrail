@@ -32,10 +32,10 @@ bool Simulation::writable(bool wf, bool wl, uint s, uint sf, uint sl) {
 
 // 'Empty' simulation grid initalization
 void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentParser* p) {
-    double r_in     = p->d("r_in");
-    double r_out    = p->d("r_out");
+    double r_in     = p->d("r_in") * cs::r_sun;
+    double r_out    = p->d("r_out") * cs::r_sun;
     //double T_in     = std::pow((3.0 * cs::G * p->d("m_primary") * cs::m_sun * 1e17 / (8.0 * M_PI * cs::k * std::pow(r_in, 3.0))), 0.25);
-    double T_in     = p->d("temp_in");
+    //double T_in     = p->d("temp_in");
 
     for (uint i=0; i< dim[0]; i++) { // rings
         for (uint j=0; j<dim[1]; j++){ // cells
@@ -49,7 +49,8 @@ void Simulation::grid_init(double*** data, std::vector<size_t> dim, ArgumentPars
             data[i][j][7]   = r_out - i * (r_out - r_in) / ((double) dim[0]); // cell specific radius
             data[i][j][8]   = 2.0 * M_PI * ((double) j) / ((double) dim[1]); // azimuth (cell specific rotation angle)
             data[i][j][9]   = 0.0; // drain
-            data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // radius dependent disk body temperature
+            data[i][j][10]  = 0.0; // empty cell temperature is 0.0 K to make sense
+            //data[i][j][10]  = T_in * std::pow((data[i][j][7] / r_in ), -0.75); // radius dependent disk body temperature
             data[i][j][11]  = std::pow(r_out, 2.0) / std::pow(((double)dim[0] - i - 1) * (r_out - r_in) / ((double)dim[0] - 1) , 2.0); // local 'g'
             //data[i][j][11]  = 1.0; // local 'g'
             data[i][j][12]  = 1.0; // compute flag (0.0 --> do not compute)
@@ -104,7 +105,9 @@ void Simulation::slave(std::vector<size_t> dim, ArgumentParser* p) {
 
             // bunka s nulovou hmotnosti
             // rovnice nedavaji smysl
-            if (data[i][5] == 0.0) {continue;}
+            if (data[i][5] == 0.0) {
+                continue;
+            }
 
             // pocatectni podminky
             double      x = data[i][2];
@@ -139,8 +142,8 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
     double m_primary, r_in, r_out; // system params
     // from CLAs to easilly accesible vars
     m_primary       = p->d("m_primary") * cs::m_sun;
-    r_in            = p->d("r_in");
-    r_out           = p->d("r_out");
+    r_in            = p->d("r_in") * cs::r_sun;
+    r_out           = p->d("r_out") * cs::r_sun;
     
     // MPI status flag holder
     MPI_Status status;
@@ -184,18 +187,18 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
 
     // initial state save and write check
     if (writable(wf, wl, 0, sf, sl)) {
-        fn::writeDataSet(sim_file, grid, dim, "data_0"); 
+        fn::writeDataSet(sim_file, grid, dim, "d0"); 
     }
 
     // Rotation profile
     // - specifies angular velocity for each ring relative to i == 0
     std::vector<double> profile;
-    double T_out = std::pow((4.0 * std::pow(M_PI, 2.0) * std::pow(r_out, 3.0)) / (cs::G * m_primary) , 1.0/2.0);
-    double r, T;
+    double tau_out = std::pow((4.0 * std::pow(M_PI, 2.0) * std::pow(r_out, 3.0)) / (cs::G * m_primary) , 1.0/2.0);
+    double r, tau;
     for (uint i=0; i<dim[0]; i++) {
         r = r_in + (dim[0] - i - 1) * (r_out - r_in) / (dim[0] - 1); // ring specific radius
-        T = std::pow((4.0 * std::pow(M_PI, 2.0) * std::pow(r, 3.0)) / (cs::G * m_primary) , 1.0/2.0); // ring spe
-        profile.push_back(std::round((std::pow(10.0, 4.0) * T_out * 2.0 * M_PI) / (T * ((double)dim[1]))) / std::pow(10.0, 4.0));
+        tau = std::pow((4.0 * std::pow(M_PI, 2.0) * std::pow(r, 3.0)) / (cs::G * m_primary) , 1.0/2.0); // ring spe
+        profile.push_back(std::round((std::pow(10.0, 4.0) * tau_out * 2.0 * M_PI) / (tau * ((double)dim[1]))) / std::pow(10.0, 4.0));
     }
 
     // Distributor object
@@ -205,11 +208,19 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
         dst = new Distributor(grid, dim, p->s("blob_file"));
     else 
         dst = new Distributor(grid, dim);
-    dst->setParams(p->d("m_primary"), p->d("r_in"), p->d("r_out"), p->d("Q"), p->d("q"));
+    dst->setParams(m_primary, r_in, r_out, p->d("Q"), p->d("q"), p->d("T_flow"));
     dst->setRotationProfile(profile);
     
     double dt = dst->get_dt();
     sim_file->createAttribute<double>("dt", H5::DataSpace::From(dt)).write(dt);
+    
+    double qs = dst->get_qs();
+    sim_file->createAttribute<double>("qs", H5::DataSpace::From(qs)).write(qs);
+    
+    sim_file->createAttribute<double>("Q", H5::DataSpace::From(p->d("Q"))).write(p->d("Q"));
+    sim_file->createAttribute<double>("T_flow", H5::DataSpace::From(p->d("T_flow"))).write(p->d("T_flow"));
+    sim_file->createAttribute<double>("r_in", H5::DataSpace::From(p->d("r_in"))).write(p->d("r_in"));
+    sim_file->createAttribute<double>("r_out", H5::DataSpace::From(p->d("r_out"))).write(p->d("r_out"));
 
     // Communication data 'matrix' allocation
     double** data   = fn::alloc_2D_double(comm_dim);
@@ -255,19 +266,19 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
                 }
             }
         }
-        
+ 
         // Run distribution handler on grid
         dst->run(s);
 
         // write mass
         if (writable(wf, wl, s, sf, sl)) {
-            fn::writeDataSet(sim_file, grid, dim, "data_" + std::to_string(s));
+            fn::writeDataSet(sim_file, grid, dim, "d" + std::to_string(s));
         }
 
         // info msg.
         if (v) {
             if (one_percent == 0 || s % one_percent == 0) {
-                std::cout << "Mass distribution ... " << (int) (100.0 * s / (n)) << "%\t\r" << std::flush;
+                std::cout << "Simulation ... " << (int) (100.0 * s / (n)) << "%\t\r" << std::flush;
             }
         }
     }
