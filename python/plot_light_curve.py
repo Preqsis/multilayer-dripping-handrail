@@ -51,23 +51,20 @@ def plot(data, outfile, filters, format="png") -> None:
         else:
             ax.set_xlabel("$t\ \mathrm{[s]}$")
 
-        ax.text(.5,.92, f'{filter} filter',
+        ax.text(.5,.92, f'$\mathcal{filter}$ filter',
             horizontalalignment='center',
             transform=ax.transAxes)
 
         ax.plot(data[:,0] * 60, data[:,fmap[filter]], color="black", linewidth=1)
 
-    fig.savefig(f"{outfile}.{format}", bbox_inches="tight", dpi=600, format=format)
+    fig.savefig(f"{outfile}.{format}", bbox_inches="tight", format=format)
 
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--obs_file", type=str, help="")
     p.add_argument("--filters", action=parse_csvarg, default=[], help="")
     p.add_argument("--output", default="./plot", type=str, help="")
-    p.add_argument("--width", type=int, default=1500, help="")
-    p.add_argument("--height", type=int, default=1500, help="")
-    p.add_argument("--dpi", type=int, default=300, help="")
-
+    p.add_argument("--fname", default="light_curve", type=str, help="")
     args = p.parse_args()
 
     if not os.path.isdir(args.output):
@@ -77,7 +74,7 @@ def main() -> None:
     with h5py.File(args.obs_file, "r") as f:
         data = f["data"][()]
 
-    plot(data,  f"{args.output}/plot_light_curve", filters=args.filters, format="pdf")
+    plot(data,  f"{args.output}/{args.fname}", filters=args.filters, format="pdf")
 
 if __name__ == "__main__":
     main()
