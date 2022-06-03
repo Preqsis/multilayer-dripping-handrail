@@ -168,10 +168,10 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
 
     // grid allocation
     double*** grid = fn::alloc_3D_double(dim);
-    if (p->isSet("sim_file") && p->isSet("sim_dkey")) { // sim start of external data
-        H5::File* sim_infile = new H5::File(p->s("sim_file"), H5::File::ReadOnly);
-        sim_infile->getDataSet(p->s("sim_dkey")).read((double***) grid[0][0]);
-        delete sim_infile;
+    if (p->isSet("init_file") && p->isSet("init_dkey")) { // sim start of external data
+        H5::File* init_file = new H5::File(p->s("init_file"), H5::File::ReadOnly);
+        init_file->getDataSet(p->s("init_dkey")).read((double***) grid[0][0]);
+        delete init_file;
     } else { // sim starts by setting parameters
         grid_init(grid, dim, p);
     }

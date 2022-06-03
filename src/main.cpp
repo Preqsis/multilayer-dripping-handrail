@@ -59,93 +59,142 @@ void obs(int rank, int n_workers, ArgumentParser* p) {
 }
 
 void ArgumentParserInit(ArgumentParser* p) {
-    // Enable verbosity
+    // ---------------
+    // Run parameters
+    // ---------------
+
+    /**
+     * Verbosity
+     * default: false
+     */
     Argument<bool>* verbose = new Argument<bool>("verbose", false);
     verbose->setShorthand("v");
     verbose->setHelp("Enables verbose mode.");
     p->addArgument(verbose);
 
-    // Run mass distribution
-    Argument<bool>* asim = new Argument<bool>("sim", false);
-    asim->setHelp("Run mass distribution task.");
-    p->addArgument(asim); // run mass distribution sim
+    /**
+     * Run simulation
+     * default: false
+     */
+    Argument<bool>* action_sim = new Argument<bool>("sim", false);
+    action_sim->setHelp("Run simulation task.");
+    p->addArgument(action_sim);
 
-    // Run radiation
-    Argument<bool>* arad = new Argument<bool>("rad", false);
-    arad->setHelp("Run radiation task.");
-    p->addArgument(arad); // run radiation output computation
+    /**
+     * Run radiation
+     * default: false
+     */
+    Argument<bool>* action_rad = new Argument<bool>("rad", false);
+    action_rad->setHelp("Run radiation task.");
+    p->addArgument(action_rad);
 
-    // Run obseravation
-    Argument<bool>* aobs = new Argument<bool>("obs", false);
-    aobs->setHelp("Run mass observation task.");
-    p->addArgument(aobs); // run observation and filtering
+    /**
+     * Run synthetic observation
+     * default: false
+     */
+    Argument<bool>* action_obs = new Argument<bool>("obs", false);
+    action_obs->setHelp("Run mass observation task.");
+    p->addArgument(action_obs);
 
-    // Number of sim steps
+
+    // ----------------------
+    // Simulation parameters
+    // ----------------------
+
     p->addArgument(new Argument<int>("n", 5e5, "Number of simulation steps.")); // number of simulation steps
     p->addArgument(new Argument<int>("step_first", 0)); // first step in range
     p->addArgument(new Argument<int>("step_last", 0)); // last step in range
-
-    // Specify steps range to save
-    Argument<int>* save_start = new Argument<int>("save_start");
-    save_start->setHelp("First step to save.");
-    p->addArgument(save_start);
-    Argument<int>* save_end = new Argument<int>("save_end");
-    save_end->setHelp("Last step to save.");
-    p->addArgument(save_end);
-
-    // Disk dimensions
+    
     Argument<int>* idim = new Argument<int>("idim"); // number of layers
     idim->setRequired(true);
     idim->setHelp("Number of layers(aka. rings).");
     p->addArgument(idim);
+    
     Argument<int>* jdim = new Argument<int>("jdim"); // number of cells in each layer
     jdim->setRequired(true);
     jdim->setHelp("Number of cells in each ring.");
     p->addArgument(jdim);
+    
+    // Simulation model ode stepper
+    Argument<std::string>* stepper = new Argument<std::string>("stepper", "fehlberg78");
+    stepper->setHelp("ODE stepper method.");
+    p->addArgument(stepper);
 
-    // Input / output defs
+    // --------------
+    // Input / Output
+    // --------------
+
+    /**
+     * Data output directory
+     */
     Argument<std::string>* outdir = new Argument<std::string>("outdir"); // data output directory
     outdir->setRequired(true);
     outdir->setShorthand("o");
     outdir->setHelp("Output data directory.");
     p->addArgument(outdir);                                     
-    Argument<std::string>* sim_file = new Argument<std::string>("sim_file");  // input sim_file
-    sim_file->setRequired(false);
-    sim_file->setHelp("Input HDF5 mass data file.");
-    p->addArgument(sim_file);                                     
-    Argument<std::string>* sim_dkey = new Argument<std::string>("sim_dkey"); // initial sim dkey
-    sim_dkey->setHelp("Initial data key in HDF5 input mass data file.");
-    p->addArgument(sim_dkey);
-    Argument<std::string>* blob_file = new Argument<std::string>("blob_file"); // input blob json file
+    
+    /**
+     * External initialization sim. file
+     */
+    Argument<std::string>* init_file = new Argument<std::string>("init_file");
+    init_file->setRequired(false);
+    init_file->setHelp("Input HDF5 mass init/simulation file.");
+    p->addArgument(init_file);                                     
+    
+    /**
+     * Data key in external initialization sim. file
+     */
+    Argument<std::string>* init_dkey = new Argument<std::string>("init_dkey");
+    init_dkey->setHelp("Initial data key in HDF5 input mass init/simulation file.");
+    p->addArgument(init_dkey);
+
+    /**
+     * Blob json file
+     */
+    Argument<std::string>* blob_file = new Argument<std::string>("blob_file");
     blob_file->setHelp("Blobs json file.");
     p->addArgument(blob_file);
-    Argument<std::string>* rad_file = new Argument<std::string>("rad_file");  // input rad_file
+    
+    /**
+     * Specific rad. file (--obs modul)
+     */
+    Argument<std::string>* rad_file = new Argument<std::string>("rad_file");
     rad_file->setRequired(false);
     rad_file->setHelp("Input HDF5 spectrum data file.");
-    p->addArgument(rad_file);                                     
+    p->addArgument(rad_file);
+    
+    /**
+     * First simulation step to save
+     * default: all
+     */
+    Argument<int>* save_start = new Argument<int>("save_start");
+    save_start->setHelp("First step to save.");
+    p->addArgument(save_start);
+    
+    /**
+     * Last simulation step to save
+     * default: all
+     */
+    Argument<int>* save_end = new Argument<int>("save_end");
+    save_end->setHelp("Last step to save.");
+    p->addArgument(save_end);
 
-    // Simulated system parameters
+    // ------------------
+    // System parameters
+    // ------------------
+
     p->addArgument(new Argument<double>("m_primary", 0.6));
     p->addArgument(new Argument<double>("r_in", 0.01));
     p->addArgument(new Argument<double>("r_out", 2.0));
-
-    // inner / outer mass influx
     p->addArgument(new Argument<double>("Q", 1e14));        // global disc mass influx
     p->addArgument(new Argument<double>("q", 0.9));         // local model mass influx
-
-    // Radiation wavelength specification (range, step)
     p->addArgument(new Argument<double>("wl_low", 2e-5));
     p->addArgument(new Argument<double>("wl_high", 9e-5));
     p->addArgument(new Argument<double>("wl_step", 1e-7));
-
     Argument<double>* T_flow = new Argument<double>("T_flow", 4500); // central object temperature
     T_flow->setHelp("Influx temperature.");
     p->addArgument(T_flow);
 
-    // Simulation model ode stepper
-    Argument<std::string>* stepper = new Argument<std::string>("stepper", "fehlberg78");
-    stepper->setHelp("ODE stepper method.");
-    p->addArgument(stepper);
 }
 
 int main(int argc, char **argv) {
