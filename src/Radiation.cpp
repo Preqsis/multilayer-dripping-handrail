@@ -77,7 +77,7 @@ void Radiation::slave(std::vector<size_t> dim_sim, std::vector<size_t> dim_rad, 
                     for (size_t k = 0; k < dim_rad[2]; k++) {  // pres rozsah vl. delek
                         wl  = data_rad[i][j][k][0];
                         frq = cs::c / wl;
-                        data_rad[i][j][k][1] = 2.0 * S * planck(wl, data_sim[i][j][10]);
+                        data_rad[i][j][k][1] = 4.0 * M_PI * S * planck(wl, data_sim[i][j][10]) * wl_step;
                     }
                 }
             }
