@@ -105,17 +105,28 @@ void ArgumentParserInit(ArgumentParser* p) {
     p->addArgument(new Argument<int>("step_first", 0)); // first step in range
     p->addArgument(new Argument<int>("step_last", 0)); // last step in range
     
-    Argument<int>* idim = new Argument<int>("idim"); // number of layers
+    /**
+     * Number of layers(rings)
+     */
+    Argument<int>* idim = new Argument<int>("idim");
     idim->setRequired(true);
+    idim->setShorthand("I");
     idim->setHelp("Number of layers(aka. rings).");
     p->addArgument(idim);
     
-    Argument<int>* jdim = new Argument<int>("jdim"); // number of cells in each layer
+    /**
+     * Number of cell in one layer(ring)
+     */
+    Argument<int>* jdim = new Argument<int>("jdim");
     jdim->setRequired(true);
+    jdim->setShorthand("J");
     jdim->setHelp("Number of cells in each ring.");
     p->addArgument(jdim);
     
-    // Simulation model ode stepper
+    /**
+     * ODE stepper
+     * - used internaly in MSMM model
+     */
     Argument<std::string>* stepper = new Argument<std::string>("stepper", "fehlberg78");
     stepper->setHelp("ODE stepper method.");
     p->addArgument(stepper);
@@ -127,11 +138,11 @@ void ArgumentParserInit(ArgumentParser* p) {
     /**
      * Data output directory
      */
-    Argument<std::string>* outdir = new Argument<std::string>("outdir"); // data output directory
+    Argument<std::string>* outdir = new Argument<std::string>("outdir");
     outdir->setRequired(true);
     outdir->setShorthand("o");
     outdir->setHelp("Output data directory.");
-    p->addArgument(outdir);                                     
+    p->addArgument(outdir);
     
     /**
      * External initialization sim. file
@@ -182,19 +193,31 @@ void ArgumentParserInit(ArgumentParser* p) {
     // ------------------
     // System parameters
     // ------------------
-
-    p->addArgument(new Argument<double>("m_primary", 0.6));
-    p->addArgument(new Argument<double>("r_in", 0.01));
-    p->addArgument(new Argument<double>("r_out", 2.0));
-    p->addArgument(new Argument<double>("Q", 1e14));        // global disc mass influx
-    p->addArgument(new Argument<double>("q", 0.9));         // local model mass influx
-    p->addArgument(new Argument<double>("wl_low", 2e-5));
-    p->addArgument(new Argument<double>("wl_high", 9e-5));
-    p->addArgument(new Argument<double>("wl_step", 1e-7));
-    Argument<double>* T_flow = new Argument<double>("T_flow", 4500); // central object temperature
+    
+    /**
+     * Primary object mass
+     */
+    Argument<double>* m_primary = new Argument<double>("m_primary", 0.6);
+    m_primary->setShorthand("M");
+    m_primary->setHelp("Primary object mass.");
+    p->addArgument(m_primary);
+    
+    /**
+     * Influx gas gemteprature
+     */
+    Argument<double>* T_flow = new Argument<double>("T_flow", 4500);
     T_flow->setHelp("Influx temperature.");
     p->addArgument(T_flow);
+    
+    p->addArgument(new Argument<double>("r_in", 0.01));
+    p->addArgument(new Argument<double>("r_out", 2.0));
 
+    p->addArgument(new Argument<double>("Q", 1e14));        // global disc mass influx
+    p->addArgument(new Argument<double>("q", 0.9));         // local model mass influx
+    
+    p->addArgument(new Argument<double>("wl_low", 1e-5));
+    p->addArgument(new Argument<double>("wl_high", 9e-5));
+    p->addArgument(new Argument<double>("wl_step", 1e-7));
 }
 
 int main(int argc, char **argv) {
@@ -222,17 +245,20 @@ int main(int argc, char **argv) {
         std::cout << std::endl;
     }
 
-    // Mass distribution
+    // Simulation
+    // - mass flow simulation
     if (p->b("sim")) {
         sim(rank, n_workers, p);
     }
 
-    // Radiative output
+    // Radiation
+    // - generates spectrum for all cells
     if (p->b("rad")) {
         rad(rank, n_workers, p);
     }
 
-    // 'Observation' and filtering
+    // Observation
+    // - synthetic filtred light curve 
     if (p->b("obs")) {
         obs(rank, n_workers, p);
     }
