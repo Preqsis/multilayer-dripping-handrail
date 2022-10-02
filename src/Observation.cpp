@@ -56,11 +56,11 @@ void Observation::slave(std::vector<size_t> dim_rad, std::vector<size_t> dim_obs
 
         if (status.MPI_TAG == cs::mpi::STOP) {break;}
 
-        data_obs[0] = filter_gauss(data_rad, dim_rad, 365.6e-7, 34.0e-7); // U
-        data_obs[1] = filter_gauss(data_rad, dim_rad, 435.3e-7, 78.1e-7); // B
-        data_obs[2] = filter_gauss(data_rad, dim_rad, 547.7e-7, 99.1e-7); // V
-        data_obs[3] = filter_gauss(data_rad, dim_rad, 634.9e-7, 106.56e-7); // R
-        //data_obs[3] = filter_gauss(data_rad, dim_rad, 634.9e-9, 106.56e-9); // I
+        data_obs[0] = filter_gauss(data_rad, dim_rad, 366.3e-7, 65.0e-7); // U
+        data_obs[1] = filter_gauss(data_rad, dim_rad, 436.1e-7, 89.0e-7); // B
+        data_obs[2] = filter_gauss(data_rad, dim_rad, 544.8e-7, 84.0e-7); // V
+        data_obs[3] = filter_gauss(data_rad, dim_rad, 640.7e-7, 158.0e-7); // R
+        //data_obs[3] = filter_gauss(data_rad, dim_rad, 798.0e-9, 154.0e-9); // I
 
         MPI_Send(&(data_obs[0]), len_obs, MPI_DOUBLE, 0, status.MPI_TAG, MPI_COMM_WORLD);
     }
