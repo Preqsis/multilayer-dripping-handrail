@@ -98,7 +98,7 @@ def plot(data, density_range, T_range, idim, jdim, outfile, width=1500, height=1
     fig.savefig(f"{outfile}.{format}", bbox_inches="tight", dpi=600, format=format)
     plt.close(fig)
 
-def get_range(data, val_index, force_min=None, force_max=None) -> List:
+def get_range(data, val_index, force_min=None, force_max=None) -> list:
     rmin, rmax = 1e30, 0.0
 
     for dkey, d in data.items():
