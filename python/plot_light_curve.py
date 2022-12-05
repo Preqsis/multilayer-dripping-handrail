@@ -37,10 +37,7 @@ def plot(obs_file: str, plot_file: str, filters: list[str]) -> None:
     fig.set_size_inches(7, len(filters) * 3.5)
 
     for i, filter in enumerate(filters):
-        print(i, filter, fmap[filter])
-
-        ax = axes[i] if len(filters) > 1 else axes
-        
+        ax = axes[i] if len(filters) > 1 else axes 
         ax.xaxis.set_tick_params(width=1, length=7, direction="in")
         ax.yaxis.set_tick_params(width=1, length=7, direction="in", which="both")
         ax.ticklabel_format(style='sci', axis='both', scilimits=(0,0))
@@ -51,7 +48,6 @@ def plot(obs_file: str, plot_file: str, filters: list[str]) -> None:
             ax.set_xlabel(r"$t\ \mathrm{[s]}$")
         ax.set_title(r'$\mathcal{%s}$ filter' % (filter))
         ax.plot(data[:,0] * 60, data[:,fmap[filter]], color="black", linewidth=1)
-
     fig.savefig(plot_file, bbox_inches="tight", format=Path(plot_file).suffix[1:])
 
 def main() -> None:
