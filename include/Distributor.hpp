@@ -26,6 +26,8 @@ private:
 
     double _qs;                         // "inner / outer" mass scaling
 
+    double _psi;                        // drop breakout ratio [0., 1.]
+
     double*** _grid;
     std::vector<size_t> _dim;           // comms dimensions
     std::vector<double> _rProfile;      // rotation profile
@@ -42,7 +44,7 @@ public:
 
     void setRotationProfile(std::vector<double> profile);
 
-    void setParams(double M, double r_in, double r_out, double Q, double q, double T_flow);
+    void setParams(double M, double r_in, double r_out, double Q, double q, double T_flow, double psi);
 
     double get_dt();
 

@@ -214,7 +214,9 @@ void ArgumentParserInit(ArgumentParser* p) {
 
     p->addArgument(new Argument<double>("Q", 1e14));        // global disc mass influx
     p->addArgument(new Argument<double>("q", 0.9));         // local model mass influx
+    p->addArgument(new Argument<double>("psi", 0.8));         // local model mass influx
     
+
     p->addArgument(new Argument<double>("wl_low", 1e-5));
     p->addArgument(new Argument<double>("wl_high", 9e-5));
     p->addArgument(new Argument<double>("wl_step", 1e-7));

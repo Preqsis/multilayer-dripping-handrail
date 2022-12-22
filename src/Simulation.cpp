@@ -208,7 +208,7 @@ void Simulation::master(std::vector<size_t> comm_dim, int n_workers, ArgumentPar
         dst = new Distributor(grid, dim, p->s("blob_file"));
     else 
         dst = new Distributor(grid, dim);
-    dst->setParams(m_primary, r_in, r_out, p->d("Q"), p->d("q"), p->d("T_flow"));
+    dst->setParams(m_primary, r_in, r_out, p->d("Q"), p->d("q"), p->d("T_flow"), p->d("psi"));
     dst->setRotationProfile(profile);
     
     double dt = dst->get_dt();

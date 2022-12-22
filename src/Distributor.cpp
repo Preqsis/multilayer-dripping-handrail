@@ -36,7 +36,7 @@ void Distributor::setRotationProfile(std::vector<double> profile) {
     _rProfile = profile;
 }
 
-void Distributor::setParams(double M, double r_in, double r_out, double Q, double q, double T_flow) {
+void Distributor::setParams(double M, double r_in, double r_out, double Q, double q, double T_flow, double psi) {
     _M      = M;
     _r_in   = r_in;
     _r_out  = r_out;
@@ -46,6 +46,7 @@ void Distributor::setParams(double M, double r_in, double r_out, double Q, doubl
     _qs     = _Q * _dt / _q;
     _dr     = (r_out - r_in) / (double) _dim[1];
     _T_flow = T_flow;
+    _psi    = psi;
 }
 
 double Distributor::get_dt() {
@@ -204,7 +205,8 @@ void Distributor::run(uint s) {
 
                 // odtrzena hmotnost
                 w                       = getRandW();
-                mb                      = _grid[i][j][5] * (0.8 - w);
+                // mb                      = _grid[i][j][5] * (0.8 - w);
+                mb                      = _grid[i][j][5] * _psi;
                 if (mb <= 1e-8) { // jaky limit presne? !!!!!!!!!
                     mb                  = _grid[i][j][5];
                     _grid[i][j][5]      = 0.0;
@@ -253,7 +255,8 @@ void Distributor::run(uint s) {
 
                 // odtrzena hmotnost
                 w               = getRandW();
-                mb              = _grid[i][j][5] * (0.8 - w);
+                // mb              = _grid[i][j][5] * (0.8 - w);
+                mb              = _grid[i][j][5] * _psi;
                 if (mb <= 1e-8) {
                     mb                  = _grid[i][j][5];
                     _grid[i][j][5]      = 0.0;
