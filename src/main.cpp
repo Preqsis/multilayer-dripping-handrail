@@ -101,7 +101,10 @@ void ArgumentParserInit(ArgumentParser* p) {
     // Simulation parameters
     // ----------------------
 
-    p->addArgument(new Argument<int>("n", 5e5, "Number of simulation steps.")); // number of simulation steps
+    Argument<int>* n_steps = new Argument<int>("nsteps", 5e5);
+    n_steps->setHelp("Number of simulation steps.");
+    n_steps->setShorthand("n");
+    
     p->addArgument(new Argument<int>("step_first", 0)); // first step in range
     p->addArgument(new Argument<int>("step_last", 0)); // last step in range
     
@@ -130,6 +133,10 @@ void ArgumentParserInit(ArgumentParser* p) {
     Argument<std::string>* stepper = new Argument<std::string>("stepper", "fehlberg78");
     stepper->setHelp("ODE stepper method.");
     p->addArgument(stepper);
+    
+    p->addArgument(n_steps);
+    p->addArgument(new Argument<double>("q", 0.8));         // local model mass influx
+    p->addArgument(new Argument<double>("psi", 0.8));         // local model mass influx
 
     // --------------
     // Input / Output
@@ -213,8 +220,7 @@ void ArgumentParserInit(ArgumentParser* p) {
     p->addArgument(new Argument<double>("r_out", 2.0));
 
     p->addArgument(new Argument<double>("Q", 1e14));        // global disc mass influx
-    p->addArgument(new Argument<double>("q", 0.9));         // local model mass influx
-    p->addArgument(new Argument<double>("psi", 0.8));         // local model mass influx
+
     
 
     p->addArgument(new Argument<double>("wl_low", 1e-5));

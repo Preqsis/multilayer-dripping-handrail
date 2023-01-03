@@ -43,7 +43,8 @@ void Distributor::setParams(double M, double r_in, double r_out, double Q, doubl
     _Q      = Q;
     _q      = q;
     _dt     = 2.0 * M_PI * std::sqrt(std::pow(_r_out, 3.0) / cs::G / _M) / _dim[1];
-    _qs     = _Q * _dt / _q;
+    // TODO: do proper qs computation
+    _qs     = _Q * _dt / _q / 0.1; // divide by dx = 0.1
     _dr     = (r_out - r_in) / (double) _dim[1];
     _T_flow = T_flow;
     _psi    = psi;
