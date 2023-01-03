@@ -219,10 +219,9 @@ void ArgumentParserInit(ArgumentParser* p) {
     p->addArgument(new Argument<double>("r_in", 0.01));
     p->addArgument(new Argument<double>("r_out", 2.0));
 
-    p->addArgument(new Argument<double>("Q", 1e14));        // global disc mass influx
-
+    p->addArgument(new Argument<double>("Q", 1e14)); 
+    p->addArgument(new Argument<double>("q", 0.9));
     
-
     p->addArgument(new Argument<double>("wl_low", 1e-5));
     p->addArgument(new Argument<double>("wl_high", 9e-5));
     p->addArgument(new Argument<double>("wl_step", 1e-7));
